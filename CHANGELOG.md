@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-- Request tab bar: the environment picker and Manage are pinned at the right and tabs scroll; the last tab can now be closed (empty state with New request).
-- Settings: left navigation styled like the main rail; new sections Interface (zoom, density, reduced motion), Requests & history (unsaved warning, wrap lines, keep/clear history), Shortcuts and About.
-- **Mock from a sample (anonymised)**: paste or choose a real JSON/XML response and get the same structure with fake values. Runs in the browser, nothing is stored or sent; a leak check proves none of the original values remain; field names you list are kept as-is.
-- Dev dependency `minimatch` pinned to a patched release (Dependabot alert, build tooling only).
-
 ## 0.0.0 - first public pre-release
 Early public release: expect rough edges and breaking changes before 0.1.
 - REST + SOAP/WSDL API tester (collections, environments, OAuth1/2, mock servers, security and performance checks).
@@ -21,3 +15,7 @@ Early public release: expect rough edges and breaking changes before 0.1.
 - Portable bundles with their own Node.js and per-user installers for Linux (x64/arm64), macOS (arm64/x64) and Windows (x64). macOS and Windows are untested pre-release builds and are not code-signed.
 - The `.deb` removes an older `/opt/devhub` install automatically; data is kept.
 - Release workflow publishes bundles, `.deb` files, source tarball and `SHA256SUMS`.
+- Request tab bar: the environment picker and Manage are pinned at the right and tabs scroll; the last tab can now be closed (empty state with New request).
+- Settings: left navigation styled like the main rail; new sections Interface (zoom, density, reduced motion), Requests & history (unsaved warning, wrap lines, keep/clear history), Shortcuts and About.
+- **Mock from a sample (anonymised)**: paste or choose a real JSON/XML response and get the same structure with fake values. Runs in the browser, nothing is stored or sent; a leak check proves none of the original values remain; field names you list are kept as-is.
+- Dev dependency `minimatch` pinned to a patched release (Dependabot alert, build tooling only).

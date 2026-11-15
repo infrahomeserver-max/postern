@@ -9,15 +9,17 @@ with the version, your OS and steps to reproduce. We aim to acknowledge within
 
 ## Supported versions
 
-Only the latest release receives security fixes.
+Only the latest release receives security fixes. Dependency alerts are handled through Dependabot; build-tool-only advisories (for example in `electron-builder`) do not ship in the app.
 
 ## Security model
 
 - Desktop mode (`postern`) listens on **127.0.0.1 only**, on a free port chosen at launch, and exits when the window closes.
 - Accounts use scrypt-hashed passwords and HttpOnly, SameSite cookie sessions with a CSRF header on every write.
-- Saved SFTP/API secrets are encrypted at rest (AES-256-GCM); `POSTERN_MASTER_KEY` can supply the key.
-- Outgoing requests can be restricted from private networks (`BLOCK_PRIVATE=1`).
+- Saved SFTP/API secrets are encrypted at rest (AES-256-GCM); `DEVHUB_MASTER_KEY` can supply the key.
+- Outgoing requests can be restricted from private networks (`DEVHUB_BLOCK_PRIVATE=1`).
 - The UI loads no external resources and Postern sends no telemetry.
+- **Mock servers** answer without sign-in at an unguessable URL (`/mock/<random id>`), rate-limited per mock, with an optional access key. Treat a mock URL like a link anyone can open. The anonymised-sample generator runs in the browser and never uploads the sample.
+- Request signing (Digest, AWS SigV4, JWT) happens on the local engine; the secrets stay in your encrypted data.
 - Release files (including the Windows and macOS builds) are not code-signed; verify downloads with `SHA256SUMS`.
 
 ### Desktop app (Electron) hardening

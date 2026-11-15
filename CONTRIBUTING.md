@@ -20,6 +20,8 @@ Do not submit code copied from projects with incompatible licences (GPL, AGPL, p
 npm ci
 npm run build        # builds the UI into web/dist
 npm run dev:server   # API on :3000 (set PORT to change)
+npm test             # unit and integration tests (must pass)
+npm run desktop      # optional: run the Electron app
 ```
 
 Before opening a pull request: the UI builds, the server boots, and you updated CHANGELOG.md

@@ -22,7 +22,7 @@ On first launch choose **Create account** and enter a username and password (at 
 - Change your password in **Settings → Account**. Sign out from the menu (File → Sign out now, Ctrl/Cmd+L).
 
 ## 2. The workspace
-The bar on the left switches between **API Tester**, **SFTP Client**, **Mock Servers** and **Settings**. Each opens as its own area with its own tabs; the bottom bar shows the version and connection state.
+The bar on the left switches between **Requests** (API tester), **Transfer** (SFTP), **Mocks** and **Settings**. Each opens as its own area with its own tabs; the bottom bar shows the version and connection state.
 
 ## 3. API Tester
 **Sending a request.** Click **+ → REST request**, choose the method, enter the URL, press **Send** (Ctrl/Cmd+Enter). The response shows status, time, size, headers, body (pretty-printed, raw, or preview) and test results.
@@ -41,7 +41,7 @@ The bar on the left switches between **API Tester**, **SFTP Client**, **Mock Ser
 - *Scripts / Tests:* a pre-request script and Postman-style tests (`pm.test`, `pm.expect`, `pm.response`, `pm.environment`). Scripts run in an isolated sandbox with no network or storage access.
 - *Settings:* per-request timeout, redirects, SSL verification, proxy. "Default" follows **Settings → Network**.
 
-**Tabs** can be dragged to reorder them. In the left panel, the up/down arrows next to the search box collapse every folder at once. **Manage** (next to the environment menu) opens the environment's variables in a tab.
+**Tabs** can be dragged to reorder them, closed with the ✕ or a middle-click, and scroll when there are many. Closing the last tab shows an empty screen with a **New request** button. The **environment menu and Manage** sit at the right end of the tab bar: pick the active environment there, or click **Manage** to edit its variables in a tab. In the left panel, the up/down arrows next to the search box collapse every folder at once. Key-value tables (params, headers, form) have a placeholder row at the end; untick a row to disable it or use ✕ to remove it. Response status colours: 2xx green, 3xx blue, 4xx red, 5xx solid red; the response bar has **Save as example** and **Clear**.
 
 **Collections** group requests in folders. Right-click a collection to rename, run, or export it. **Run collection** executes the requests in order for a chosen number of iterations with an optional delay and shows a pass/fail report.
 
@@ -66,6 +66,10 @@ The bar on the left switches between **API Tester**, **SFTP Client**, **Mock Ser
 
 Never put real data into the sample; it is for testing extractors and integrations.
 
+**From a sample (anonymised).** To mock a system whose data is confidential, use **Mocks → From a sample (anonymised)…**: paste or choose a real JSON or XML/SOAP response, optionally list field names to keep as-is (harmless codes such as `status`), and choose how many list items to keep (default 3). You get the same structure with fake values: names, e-mails, ids, amounts, dates, phone numbers and URLs are replaced, formats are kept, and the same real value always maps to the same fake one so references between records still line up. Everything runs inside the app: the sample is not stored or sent anywhere. A leak check searches the result for every original value and blocks creation if any survived. Field and tag names are kept as structure; rename them if a name itself is confidential. You can add the result as a route to the open mock or create a new mock.
+
+**How mocks run.** A mock is a set of routes stored in your database and answered by the same running app; nothing extra runs and an idle mock uses no resources. Mocks work only while Postern is open (desktop: they stop when the app closes). Their URLs need no sign-in and are protected only by the random id in the URL (optionally add a key with *Require key*), so do not share a mock URL you would not share publicly.
+
 ## 6. SFTP Client
 **Connect.** Use *Quick connect* (host, port, user, secret) or save a **Site** in the Site Manager (double-click a site to connect). Authentication types:
 - **Password**
@@ -82,13 +86,18 @@ Never put real data into the sample; it is for testing extractors and integratio
 **Tuning** (timeouts, retries, parallel transfers, chunk size) is in **Settings → Network**.
 
 ## 7. Settings
-- Settings is split into tabs: **Appearance** (light/dark, theme colour, button style), **Network**, **File types**, **Backup & restore**, **Account** and **Security & privacy**.
-- **Network:** timeout, follow redirects, verify SSL, maximum response size, User-Agent; proxy mode (none / system / custom with credentials and a bypass list); extra CA certificate (PEM) and client certificate/key for mutual TLS; SFTP connect timeout, keep-alive, retries, concurrency and chunk size. Anything set on an individual request overrides these.
+A menu on the left switches sections (styled like the main bar):
+- **Appearance:** light/dark, theme colour, selection tint, text contrast, button style.
+- **Interface:** zoom (80–150 %), comfortable or compact density, reduced animations.
+- **Requests & history:** warn before closing a tab with unsaved changes, wrap long lines in responses, keep or clear request history. (Timeouts and proxy are under Network.)
+- **Network:** timeout, follow redirects, verify SSL, maximum response size, User-Agent; proxy mode (none / system / custom with credentials and a bypass list); extra CA certificate (PEM) and client certificate/key for mutual TLS; SFTP connect timeout, keep-alive, retries and transfer tuning. Individual requests can override.
 - **File types:** the default action for each file type in SFTP (transfer, edit, preview, ask).
 - **Backup & restore:** download one JSON file with all collections, environments and SFTP site definitions, and restore it later. Saved SFTP passwords and keys are **not** included, so re-enter them after restoring.
 - **Account:** shows who is signed in and changes your password (current + new, at least 8 characters).
+- **Security & privacy:** a summary of how your data is protected.
+- **Shortcuts** and **About** (version, where your data is stored).
 
-In the desktop app the menu **Security → Auto sign-out** signs you out after 5, 15, 30 or 60 idle minutes, and always when the screen locks or the computer sleeps (when enabled). **Security → Open data folder** reveals your data.
+Interface and request preferences are stored per browser/profile, not in your account. In the desktop app the menu **Security → Auto sign-out** signs you out after 5, 15, 30 or 60 idle minutes, and always when the screen locks or the computer sleeps (when enabled). **Security → Open data folder** reveals your data.
 
 ## 8. Security, privacy and backups
 - Everything is stored locally and encrypted at rest. Nothing is sent anywhere by Postern itself; it only contacts the servers you ask it to.
@@ -101,6 +110,9 @@ In the desktop app the menu **Security → Auto sign-out** signs you out after 5
 | Action | Shortcut |
 |---|---|
 | Send request | Ctrl/Cmd+Enter |
+| Save request to a collection | Ctrl/Cmd+S |
+| New request tab | Ctrl/Cmd+T |
+| Close a tab | middle-click, or ✕ |
 | Sign out now | Ctrl/Cmd+L |
 | Reload | Ctrl/Cmd+R |
 | Zoom in / out / reset | Ctrl/Cmd + `+` / `-` / `0` |
@@ -114,11 +126,3 @@ Menus: **File** (sign out, quit), **Edit**, **View**, **Security** (auto sign-ou
 - **SFTP "No SSH agent found":** start `ssh-agent`, run `ssh-add`, then restart Postern from the same terminal session so it sees `SSH_AUTH_SOCK`.
 - **SFTP "authentication failed" with a code:** codes expire quickly; enter a fresh one.
 - **App will not start:** see the troubleshooting list in [INSTALL.md](INSTALL.md) and read `postern.log`.
-
-## Mock from a sample (anonymised)
-
-Mock servers → **From a sample (anonymised)…**. Paste or choose a real JSON or XML/SOAP response, optionally list field names to keep as-is (for harmless codes such as `status`), and choose how many list items to keep. You get the same structure with fake values: names, e-mails, ids, amounts, dates, phone numbers and URLs are replaced, formats are kept, and the same real value always maps to the same fake one so references between records still line up. A leak check searches the result for every original value and blocks creation if any survived. Field and tag names are kept; rename them yourself if a name is itself confidential.
-
-## Settings sections
-
-Appearance (mode, theme colour, contrast), **Interface** (zoom 80-150 %, compact density, reduced motion), **Requests & history** (warn before closing unsaved tabs, wrap long response lines, keep or clear history), Network, File types, Backup & restore, Account, Security & privacy, Shortcuts and About. Interface and request preferences are stored per browser/profile.

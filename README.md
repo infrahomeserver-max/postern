@@ -6,11 +6,11 @@ A self-hosted desktop workspace that combines a Postman-style **API tester** (RE
 
 ## Highlights
 
-- **API tester:** all HTTP methods, collections, environments and `{{variables}}`, Basic / Bearer / API key / OAuth 1.0 / OAuth 2 auth, pre-request scripts and `pm.test` tests in a sandbox, collection runner, history, code generation, and import/export of Postman, OpenAPI/Swagger and cURL.
+- **API tester:** all HTTP methods (each with its own colour), draggable tabs, collections, environments and `{{variables}}`, auth: Basic, Bearer, API key, JWT (HMAC), Digest, AWS Signature v4, OAuth 1.0 and OAuth 2 (client credentials, password, refresh token), pre-request scripts and `pm.test` tests in a sandbox, collection runner, history, code generation, and import/export of Postman, OpenAPI/Swagger and cURL.
 - **SOAP / WSDL:** import a WSDL from a URL, file or paste and get a ready-to-send request for every operation.
-- **Mock servers:** public per-mock URLs with templated responses, plus a built-in **Workday-style dummy ERP** (periods, journals, trial balances, FX, fixed assets over REST, reports and SOAP, with optional pagination and simulated errors).
+- **Mock servers:** public per-mock URLs with templated responses, built from a collection, a WSDL, or **an anonymised real sample** (paste a JSON/XML response and get the same structure with fake values, checked for leaks, entirely in the app), plus a built-in **Workday-style dummy ERP** (periods, journals, trial balances, FX, fixed assets over REST, reports and SOAP, with optional pagination and simulated errors).
 - **SFTP:** site manager, dual-pane local ⇄ remote transfers, queue, resume, remote edit, FileZilla site import, host-key pinning. Sign in with a password, private key, **SSH agent**, or **password + one-time code (2FA)**.
-- **Network settings:** timeouts, redirects, SSL, proxy (none/system/custom), extra CA and client certificates.
+- **Settings:** theme and colours, interface zoom and density, request and history options, network (timeouts, redirects, SSL, proxy, extra CA and client certificates), file-type actions, backup and restore.
 - **Private by design:** per-user accounts with isolated data, everything encrypted at rest (AES-256-GCM), no cloud, no telemetry.
 
 ## Install
@@ -24,11 +24,19 @@ Download from the [Releases](https://github.com/infrahomeserver-max/postern/rele
 | macOS | `Postern-<ver>-macos-arm64.dmg` (Apple silicon) or `-x64.dmg` (Intel) |
 | Windows 10/11 | `Postern-Setup-<ver>-windows-x64.exe` (installer) or the portable `.exe` |
 
-The macOS and Windows builds are **not code-signed**, so the first launch shows a warning (see INSTALL.md). A smaller "lite" edition that opens in a browser-style window is also published (`postern-lite_…deb`, `postern-<ver>-<os>-<arch>` bundles).
+Quickest way on Ubuntu / Debian (downloads, verifies, removes any older copy and installs):
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/infrahomeserver-max/postern/main/packaging/test-release.sh
+bash test-release.sh v0.0.0          # add --fresh for a first-run test that also wipes your data
+postern
+```
+
+The macOS and Windows builds are **not code-signed**, so the first launch shows a warning (see INSTALL.md), and only the Linux builds have been tested by the maintainers. A smaller "lite" edition that opens in a browser-style window is also published (`postern-lite_…deb`, `postern-<ver>-<os>-<arch>` bundles).
 
 ## Using it
 
-Start Postern, create a local account (username + password; no email or phone number), and open **API Tester**, **SFTP Client**, **Mock Servers** or **Settings** from the left bar. The complete guide is **[docs/MANUAL.md](docs/MANUAL.md)**.
+Start Postern, create a local account (username + password; no email or phone number), and open **Requests** (API tester), **Transfer** (SFTP), **Mocks** or **Settings** from the left bar. **Mocks → Sample: Workday-style ERP → Add to my workspace** is a one-click way to try everything. The complete guide is **[docs/MANUAL.md](docs/MANUAL.md)**.
 
 ## Your data
 
@@ -47,7 +55,7 @@ npm ci
 npm run build            # web UI
 npm run desktop          # Electron desktop app (needs the dev dependencies)
 npm start                # or: the server only, at http://127.0.0.1:3000
-npm test                 # unit tests
+npm test                 # unit and integration tests (signing vectors, anonymiser, workday data, auth)
 ```
 
 Server mode variables (`PORT`, `HOST`, `DEVHUB_DATA`, `DEVHUB_ALLOW_REGISTER=0`, `DEVHUB_BLOCK_PRIVATE=1`, `DEVHUB_MASTER_KEY`, …) and running Postern for a team on an internal network are described in [docs/INTERNAL-NETWORK.md](docs/INTERNAL-NETWORK.md).
@@ -56,7 +64,7 @@ Building installers: `npm run dist` (Electron, current OS) or push a `vX.Y.Z` ta
 
 ## Not included yet
 
-SSH terminal, database client, WebSocket/gRPC clients, team sharing / cloud sync, and sign-in two-factor for Postern itself.
+SSH terminal, database client, WebSocket/gRPC clients, team sharing / cloud sync, sign-in two-factor for Postern itself, and some auth schemes (Hawk, NTLM, Akamai, browser-based OAuth authorization code).
 
 ## Contributing and license
 

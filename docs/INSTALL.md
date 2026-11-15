@@ -47,8 +47,24 @@ Run `Postern-Setup-<ver>-windows-x64.exe`. SmartScreen may warn because the file
 ### Lite edition (optional)
 Smaller bundles that open in a Chromium-based browser window (Edge, Chrome, Chromium or Brave must be installed): `sudo apt install ./postern-lite_<ver>-1_amd64.deb`, or extract `postern-<ver>-<os>-<arch>.tar.gz` / `.zip` and run `./install.sh` (macOS/Linux) or `install.cmd` (Windows). The lite and desktop `.deb` packages conflict with each other, so install one at a time.
 
+## Update to a newer version
+Install the newer file over the old one (`sudo apt install ./Postern-<ver>-linux-amd64.deb`, run the new installer, or replace the app). Your data is kept. After a failed or odd update, use the clean reinstall below.
+
+## Quick install, verify and clean test (Ubuntu / Debian)
+
+One command downloads a release, checks its checksum, removes any older Postern and installs it. Your data is kept unless you add `--fresh`.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/infrahomeserver-max/postern/main/packaging/test-release.sh
+bash test-release.sh            # latest published release, keep my data
+bash test-release.sh --fresh    # first-run test: also wipes ~/.local/share/postern
+bash test-release.sh v0.0.0     # a specific release
+```
+
+The `.deb` is about 100 MB, so the progress bar may crawl on a slow link. The script needs a *published* release: wait until the Release workflow is green. Run it from any folder; it cleans up after itself.
+
 ## Check that it works
-Launch Postern. A window opens with a sign-in/create-account page. Create an account and open **Mock Servers → Sample: Workday-style ERP → Set up** for a one-click smoke test (a ready-made collection and environment appear under **API Tester**).
+Launch Postern. A window opens with a sign-in/create-account page. Create an account and open **Mocks → Sample: Workday-style ERP → Add to my workspace** for a one-click smoke test (a ready-made collection and environment appear under **Requests**, and the environment is selected for you).
 
 `postern --version` prints the version on Linux.
 
@@ -96,20 +112,11 @@ From the source tarball `postern-<ver>.tar.gz`: `sudo ./deploy/install.sh --serv
 
 ## Troubleshooting
 
+- **`apt` says "Invalid archive member header":** you have a `.deb` from an early v0.0.0 build that had stray bytes after the archive. Download the current release again (the Release workflow now trims and verifies every `.deb`).
+- **`apt` prints "Download is performed unsandboxed as root … couldn't be accessed by user _apt":** harmless; it only means the file sits in a folder `_apt` cannot read. Install still works.
+- **`curl … 404` in the quick-install script:** the release for that tag is not published yet (or failed). Check Actions → Release.
+
 - **Window does not open / closes at once:** read `postern.log` in the data folder.
 - **"Engine did not start":** another copy may be running, or the data folder is not writable. Quit all Postern processes and retry.
 - **Blank window on Linux with odd graphics drivers:** start with `postern --disable-gpu`.
 - **Locked out (forgot password):** passwords cannot be recovered. Restore a backup of the data folder, or follow the clean reinstall to start fresh.
-
-## Testing a release on your own machine (clean)
-
-One command downloads the release, checks its checksum, removes any older Postern and installs it. Your data is kept unless you add `--fresh`.
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/infrahomeserver-max/postern/main/packaging/test-release.sh
-bash test-release.sh            # latest release, keep my data
-bash test-release.sh --fresh    # first-run test: also wipes ~/.local/share/postern
-bash test-release.sh v0.0.0     # a specific release
-```
-
-A new build only exists after the release workflow has finished green for the new tag, so wait for that before running it.

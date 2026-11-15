@@ -1,13 +1,26 @@
 # Publishing Postern
 
-1. Create the GitHub repository `infrahomeserver-max/postern` (public).
-2. Bump `version` in `package.json` and add a `CHANGELOG.md` entry.
-3. Commit, then tag and push: `git tag vX.Y.Z && git push origin main vX.Y.Z`.
-4. The **Release** workflow checks the tag matches `package.json`, builds the tarball and a `.deb`
-   for amd64 and arm64 (each bundles Node.js 22), writes `SHA256SUMS`, and attaches everything to the release.
+Repository: `infrahomeserver-max/postern` (public). Releases are built by `.github/workflows/release.yml` when a `vX.Y.Z` tag is pushed.
 
-Local build (offline test): `NODE_DIST_DIR=<extracted Node folder> bash packaging/build-portable.sh linux x64 dist`; `bash packaging/build-deb.sh`.
+## Release steps
+1. Bump `version` in `package.json` (and `package-lock.json`), add a `CHANGELOG.md` entry, run `npm test`.
+2. Commit and push `main`; wait for the **CI** workflow to go green.
+3. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. The **Release** workflow checks the tag matches `package.json`, builds the source tarball, the lite `.deb` files, the lite portable bundles and the desktop installers for Linux, macOS and Windows, then **publish** writes `SHA256SUMS` and attaches everything to the GitHub release. It takes about 6 minutes.
+5. Open Actions → Release and confirm every job is green. If one job fails on an artifact upload timeout, use **Re-run failed jobs** (not a full re-run).
+6. Smoke-test: `bash packaging/test-release.sh vX.Y.Z --fresh`.
 
-Assets per release: desktop app `Postern-<ver>-{linux,macos,windows}-<arch>` (`.deb`, `.AppImage`, `.dmg`, `.zip`, `.exe`); lite `.deb` (amd64, arm64); `postern-<ver>-{linux,macos}-{x64,arm64}.tar.gz` and `-windows-x64.zip`
-(each bundles the official, checksum-verified Node.js 22 and an installer); `postern-<ver>.tar.gz` (source/server, for `deploy/install.sh --service`); `SHA256SUMS`.
-The macOS and Windows installers have been written but only the Linux ones were tested; smoke-test them on real machines before announcing.
+## Re-doing a release (same tag)
+Delete the release on the Releases page, then:
+```
+git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+## Notes
+- Linux desktop `.deb` files are trimmed and verified in CI by `packaging/fix-deb.py` (apt rejects stray bytes after the archive; the step fails the build if a `.deb` is still invalid).
+- `npmRebuild` is off: the engine is pure JavaScript, and rebuilding native modules breaks cross-architecture builds.
+- Local build for the current OS: `npm run build && npm run dist`. Lite bundles: `NODE_DIST_DIR=<extracted Node folder> bash packaging/build-portable.sh linux x64 dist`; `bash packaging/build-deb.sh`.
+
+Assets per release: desktop app `Postern-<ver>-{linux,macos,windows}-<arch>` (`.deb`, `.AppImage`, `.dmg`, `.zip`, `.exe`); lite `.deb` (amd64, arm64); `postern-<ver>-{linux,macos}-{x64,arm64}.tar.gz` and `-windows-x64.zip` (each bundles Node.js 22 and an installer); `postern-<ver>.tar.gz` (source/server, for `deploy/install.sh --service`); `SHA256SUMS`.
+The macOS and Windows installers are unsigned and only the Linux ones have been tested; smoke-test them on real machines before announcing.
