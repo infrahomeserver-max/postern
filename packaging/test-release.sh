@@ -11,11 +11,12 @@ for a in "$@"; do case "$a" in --fresh) FRESH=1 ;; *) TAG="$a" ;; esac; done
 command -v curl >/dev/null || { echo "curl is required"; exit 1; }
 ARCH="$(dpkg --print-architecture)"            # amd64 or arm64
 if [ -z "$TAG" ]; then TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" | sed 's#.*/##')"; fi
+case "$TAG" in v[0-9]*) ;; *) echo "No published release found. Wait for Actions -> Release to finish, or pass a tag: bash test-release.sh v0.0.0"; exit 1 ;; esac
 VER="${TAG#v}"; DEB="Postern-$VER-linux-$ARCH.deb"
 D="$(mktemp -d)"; trap 'rm -rf "$D"' EXIT; cd "$D"
 echo "==> Downloading $TAG ($ARCH)"
 curl -fsSLO "https://github.com/$REPO/releases/download/$TAG/SHA256SUMS"
-curl -fsSLO "https://github.com/$REPO/releases/download/$TAG/$DEB"
+curl -fL# -O "https://github.com/$REPO/releases/download/$TAG/$DEB"
 echo "==> Verifying checksum"
 sha256sum -c SHA256SUMS --ignore-missing | grep -F "$DEB"
 echo "==> Removing any older Postern (your data is kept)"

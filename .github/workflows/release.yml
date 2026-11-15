@@ -91,6 +91,11 @@ jobs:
       - name: Build installers (unsigned)
         run: npx electron-builder ${{ matrix.args }} --publish never
         env: { CSC_IDENTITY_AUTO_DISCOVERY: "false" }
+      - name: Trim and verify .deb (apt rejects stray bytes after the archive)
+        if: startsWith(matrix.name, 'linux')
+        run: |
+          python3 packaging/fix-deb.py dist-electron/Postern-*.deb
+          for f in dist-electron/Postern-*.deb; do ar t "$f" | tr '\n' ' '; echo; dpkg-deb -I "$f" | head -3; python3 packaging/fix-deb.py "$f" | grep -q ': ok'; done
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
