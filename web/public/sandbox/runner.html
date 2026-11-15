@@ -1,0 +1,94 @@
+<!doctype html><meta charset="utf-8"><title>sandbox</title>
+<script>
+// Script sandbox: runs in an opaque-origin iframe (no cookies, no storage, no network: CSP connect-src 'none').
+(function () {
+  'use strict';
+  const CHAIN = ['to', 'be', 'been', 'is', 'that', 'which', 'and', 'has', 'have', 'with', 'at', 'of', 'same', 'does', 'still'];
+  const typeOf = (v) => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+  const fmt = (v) => { try { return typeof v === 'string' ? JSON.stringify(v) : JSON.stringify(v) ?? String(v); } catch { return String(v); } };
+  const eq = (a, b) => { try { return JSON.stringify(a) === JSON.stringify(b); } catch { return a === b; } };
+  class Assertion {
+    constructor(v) { this.v = v; this.neg = false; this.isDeep = false; }
+    _t(ok, msg, nmsg) { if (!!ok === this.neg) throw new Error(this.neg ? nmsg : msg); return this; }
+    get not() { this.neg = !this.neg; return this; }
+    get deep() { this.isDeep = true; return this; }
+    get ok() { return this._t(this.v, `expected ${fmt(this.v)} to be truthy`, `expected ${fmt(this.v)} to be falsy`); }
+    get true() { return this._t(this.v === true, `expected ${fmt(this.v)} to be true`, `expected value not to be true`); }
+    get false() { return this._t(this.v === false, `expected ${fmt(this.v)} to be false`, `expected value not to be false`); }
+    get null() { return this._t(this.v === null, `expected ${fmt(this.v)} to be null`, `expected value not to be null`); }
+    get undefined() { return this._t(this.v === undefined, `expected ${fmt(this.v)} to be undefined`, `expected value not to be undefined`); }
+    get exist() { return this._t(this.v != null, `expected value to exist`, `expected value not to exist`); }
+    get empty() { const e = this.v == null ? true : typeof this.v === 'object' && !Array.isArray(this.v) ? !Object.keys(this.v).length : !this.v.length; return this._t(e, `expected ${fmt(this.v)} to be empty`, `expected ${fmt(this.v)} not to be empty`); }
+    equal(x) { return this._t(this.isDeep ? eq(this.v, x) : this.v === x, `expected ${fmt(this.v)} to equal ${fmt(x)}`, `expected ${fmt(this.v)} not to equal ${fmt(x)}`); }
+    eql(x) { return this._t(eq(this.v, x), `expected ${fmt(this.v)} to deeply equal ${fmt(x)}`, `expected ${fmt(this.v)} not to deeply equal ${fmt(x)}`); }
+    a(t) { return this._t(typeOf(this.v) === t, `expected ${fmt(this.v)} to be a ${t}`, `expected ${fmt(this.v)} not to be a ${t}`); }
+    include(x) { const v = this.v; const ok = typeof v === 'string' ? v.includes(x) : Array.isArray(v) ? (this.isDeep ? v.some(i => eq(i, x)) : v.includes(x)) : v && typeof v === 'object' ? Object.entries(x).every(([k, val]) => eq(v[k], val)) : false; return this._t(ok, `expected ${fmt(v)} to include ${fmt(x)}`, `expected ${fmt(v)} not to include ${fmt(x)}`); }
+    property(k, val) { const has = this.v != null && k in Object(this.v); const ok = has && (arguments.length < 2 || eq(this.v[k], val)); return this._t(ok, `expected ${fmt(this.v)} to have property ${fmt(k)}${arguments.length > 1 ? ' = ' + fmt(val) : ''}`, `expected ${fmt(this.v)} not to have property ${fmt(k)}`); }
+    lengthOf(n) { return this._t(this.v != null && this.v.length === n, `expected length ${this.v?.length} to equal ${n}`, `expected length not to equal ${n}`); }
+    above(n) { return this._t(this.v > n, `expected ${fmt(this.v)} to be above ${n}`, `expected ${fmt(this.v)} not to be above ${n}`); }
+    below(n) { return this._t(this.v < n, `expected ${fmt(this.v)} to be below ${n}`, `expected ${fmt(this.v)} not to be below ${n}`); }
+    least(n) { return this._t(this.v >= n, `expected ${fmt(this.v)} to be at least ${n}`, `expected ${fmt(this.v)} to be below ${n}`); }
+    most(n) { return this._t(this.v <= n, `expected ${fmt(this.v)} to be at most ${n}`, `expected ${fmt(this.v)} to be above ${n}`); }
+    match(re) { return this._t(re.test(String(this.v)), `expected ${fmt(this.v)} to match ${re}`, `expected ${fmt(this.v)} not to match ${re}`); }
+    oneOf(a) { return this._t(a.includes(this.v), `expected ${fmt(this.v)} to be one of ${fmt(a)}`, `expected ${fmt(this.v)} not to be one of ${fmt(a)}`); }
+    keys(...k) { const ks = Object.keys(this.v || {}); k = k.flat(); return this._t(k.every(x => ks.includes(x)), `expected object to have keys ${fmt(k)}`, `expected object not to have keys ${fmt(k)}`); }
+  }
+  for (const w of CHAIN) Object.defineProperty(Assertion.prototype, w, { get() { return this; } });
+  for (const [a, b] of [['an', 'a'], ['equals', 'equal'], ['eq', 'equal'], ['eqls', 'eql'], ['includes', 'include'], ['contain', 'include'], ['contains', 'include'], ['length', 'lengthOf'], ['greaterThan', 'above'], ['lessThan', 'below'], ['gt', 'above'], ['lt', 'below'], ['gte', 'least'], ['lte', 'most'], ['matches', 'match']]) Assertion.prototype[a] = Assertion.prototype[b];
+  Object.defineProperty(Assertion.prototype, 'length', { value: function (n) { return this.lengthOf(n); }, writable: true });
+
+  const kvStore = (obj, changes) => ({
+    get: (k) => obj[k], set: (k, v) => { obj[k] = v; changes[k] = v; }, unset: (k) => { delete obj[k]; changes[k] = null; },
+    has: (k) => k in obj, toObject: () => ({ ...obj }),
+  });
+
+  async function run(msg) {
+    const { script, ctx } = msg; const tests = [], logs = [], pending = [];
+    const envC = {}, globC = {}, varC = {}, addHeaders = [];
+    const env = { ...(ctx.env || {}) }, glob = { ...(ctx.globals || {}) }, vars = { ...(ctx.vars || {}) };
+    const resp = ctx.response;
+    const body = () => resp?.bodyText ?? '';
+    const response = resp && {
+      code: resp.status, status: resp.statusText, responseTime: resp.timeMs, responseSize: resp.size,
+      headers: { get: (k) => { const h = resp.headers.find(([n]) => n.toLowerCase() === String(k).toLowerCase()); return h ? h[1] : undefined; }, has(k) { return this.get(k) !== undefined; }, toObject: () => Object.fromEntries(resp.headers) },
+      text: () => body(), json: () => JSON.parse(body()),
+      to: {
+        have: {
+          status: (c) => { const ok = typeof c === 'number' ? resp.status === c : resp.statusText === c; if (!ok) throw new Error(`expected response to have status ${c} but got ${resp.status}`); },
+          header: (k) => { if (!response.headers.has(k)) throw new Error(`expected response to have header ${k}`); },
+          body: (s) => { if (typeof s === 'string' ? !body().includes(s) : !s.test(body())) throw new Error('expected body to match'); },
+          jsonBody: (k) => { const j = JSON.parse(body()); if (k !== undefined && !(k in j)) throw new Error(`expected JSON body to have ${k}`); },
+        },
+        be: {
+          get ok() { if (resp.status < 200 || resp.status >= 300) throw new Error(`expected 2xx but got ${resp.status}`); return true; },
+          get success() { return this.ok; },
+          get error() { if (resp.status < 400) throw new Error(`expected an error status but got ${resp.status}`); return true; },
+          get json() { try { JSON.parse(body()); } catch { throw new Error('expected body to be JSON'); } return true; },
+        },
+      },
+    };
+    const request = { url: ctx.request?.url, method: ctx.request?.method, headers: {
+      add: (h) => addHeaders.push(h), upsert: (h) => addHeaders.push(h), get: (k) => (ctx.request?.headers || []).find(([n]) => n.toLowerCase() === String(k).toLowerCase())?.[1],
+    } };
+    const pm = {
+      info: { requestName: ctx.request?.name || '' },
+      environment: kvStore(env, envC), globals: kvStore(glob, globC),
+      variables: { ...kvStore(vars, varC), get: (k) => k in vars ? vars[k] : k in env ? env[k] : glob[k], replaceIn: (s) => String(s).replace(/\{\{(.+?)\}\}/g, (m, k) => (k in vars ? vars[k] : k in env ? env[k] : k in glob ? glob[k] : m)) },
+      response, request,
+      expect: (v) => new Assertion(v),
+      test: (name, fn) => {
+        try { const r = fn(); if (r && r.then) pending.push(r.then(() => tests.push({ name, pass: true }), e => tests.push({ name, pass: false, error: String(e.message || e) }))); else tests.push({ name, pass: true }); }
+        catch (e) { tests.push({ name, pass: false, error: String(e.message || e) }); }
+      },
+    };
+    const mk = (l) => (...a) => logs.push({ level: l, text: a.map(x => typeof x === 'string' ? x : fmt(x)).join(' ') });
+    const con = { log: mk('log'), info: mk('info'), warn: mk('warn'), error: mk('error') };
+    let error = '';
+    try { await new Function('pm', 'console', 'expect', '"use strict";' + script)(pm, con, pm.expect); await Promise.all(pending); }
+    catch (e) { error = String(e && e.message || e); }
+    parent.postMessage({ id: msg.id, tests, logs, error, env: envC, globals: globC, vars: varC, headers: addHeaders }, '*');
+  }
+  addEventListener('message', (e) => { if (e.source === parent && e.data && e.data.script !== undefined) run(e.data); });
+  parent.postMessage({ ready: true }, '*');
+})();
+</script>

@@ -1,0 +1,162 @@
+{
+  "name": "postern",
+  "version": "0.0.0",
+  "description": "Self-hosted API tester + SFTP client",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "build": "vite build web",
+    "start": "NODE_ENV=production node server/index.js",
+    "release": "bash scripts/package-release.sh",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "desktop": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "ssh2": "^1.17.0",
+    "ssh2-sftp-client": "^12.1.1",
+    "undici": "^8.12.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8"
+  },
+  "main": "electron/main.cjs",
+  "author": "Postern contributors",
+  "homepage": "https://github.com/infrahomeserver-max/postern",
+  "build": {
+    "appId": "io.github.infrahomeservermax.postern",
+    "productName": "Postern",
+    "copyright": "Postern contributors",
+    "asar": false,
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "packaging/electron"
+    },
+    "files": [
+      "electron/**",
+      "server/**",
+      "web/dist/**",
+      "package.json",
+      "LICENSE",
+      "!**/*.map",
+      "!server/samples/**/*.test.*"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "electronLanguages": [
+      "en-US"
+    ],
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "Development",
+      "icon": "packaging/electron/icon.png",
+      "maintainer": "Postern contributors <noreply@example.com>",
+      "synopsis": "API tester and SFTP client",
+      "executableName": "postern",
+      "syncDesktopName": true,
+      "artifactName": "Postern-${version}-linux-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "packaging/electron/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "artifactName": "Postern-${version}-macos-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "packaging/electron/icon.png",
+      "artifactName": "Postern-${version}-windows-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Postern-Setup-${version}-windows-${arch}.${ext}"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
+    },
+    "publish": null,
+    "artifactName": "Postern-${version}-${os}-${arch}.${ext}",
+    "npmRebuild": false
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infrahomeserver-max/postern.git"
+  },
+  "desktopName": "postern.desktop",
+  "overrides": {
+    "app-builder-lib": {
+      "minimatch": "^11.0.1"
+    }
+  }
+}

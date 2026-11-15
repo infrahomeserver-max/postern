@@ -1,0 +1,13 @@
+node_modules
+data
+web/dist
+dist
+.env
+*.key
+*.db
+*.db-wal
+*.db-shm
+desktop.json
+*.log
+.DS_Store
+dist-electron

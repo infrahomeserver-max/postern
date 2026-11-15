@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Postern
+GenericName=API, SOAP and SFTP workspace
+Comment=Test REST and SOAP APIs and manage SFTP servers
+Exec=postern
+Icon=postern
+Terminal=false
+Categories=Development;Network;
+Keywords=api;rest;soap;wsdl;sftp;http;postman;filezilla;
+StartupWMClass=postern

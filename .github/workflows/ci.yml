@@ -1,0 +1,18 @@
+name: CI
+on: [push, pull_request]
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'   # only the packaged desktop build needs Chromium; electron-builder fetches it itself
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx vite build web
+      - run: npm test
+      - name: Server boots
+        run: |
+          DEVHUB_DATA=$(mktemp -d) NODE_ENV=production PORT=3999 node server/index.js & sleep 3
+          curl -fsS http://127.0.0.1:3999/ | grep -qi "<div id"

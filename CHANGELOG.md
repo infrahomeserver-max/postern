@@ -1,0 +1,21 @@
+# Changelog
+
+## Unreleased
+- **Mock from a sample (anonymised)**: paste or choose a real JSON/XML response and get the same structure with fake values. Runs in the browser, nothing is stored or sent; a leak check proves none of the original values remain; field names you list are kept as-is.
+- Dev dependency `minimatch` pinned to a patched release (Dependabot alert, build tooling only).
+
+## 0.0.0 - first public pre-release
+Early public release: expect rough edges and breaking changes before 0.1.
+- REST + SOAP/WSDL API tester (collections, environments, OAuth1/2, mock servers, security and performance checks).
+- SFTP client with site manager, transfers and open-with.
+- Settings → Network: global defaults for timeout, redirects, SSL, max response size, User-Agent, proxy (none/system/custom, with bypass list and credentials), extra CA and client certificate (mTLS), plus SFTP connect timeout, keep-alive, retries and transfer tuning. Requests can still override.
+- Workday-style dummy ERP (Mocks → "Sample: Workday-style ERP"): generated finance data for periods, journals/transactions, trial balances, FX rates and fixed assets over REST, report (RaaS-style) and SOAP endpoints with a WSDL, OAuth token endpoint, optional pagination, filters, failure/latency simulation and a one-click collection/environment import.
+- **Desktop app (Electron)** with a hardened window (sandboxed page, no Node, outside network blocked, per-launch token between window and engine, loopback Host check), optional idle auto sign-out, installers for Linux (deb, AppImage), macOS (dmg) and Windows (installer, portable). The earlier browser-window bundles remain as "lite".
+- SFTP sign-in with the SSH agent, or password + one-time code (keyboard-interactive / 2FA), besides password and private key.
+- API Tester: JWT (HMAC), Digest and AWS Signature v4 auth; OAuth 2 password and refresh-token grants; a short description for each auth type.
+- Interface: key-value rows no longer leave a stray ticked row and every row can be removed; coloured method picker; red status chips for 4xx/5xx; Clear button on responses; draggable tabs; collapse-all in the sidebar; tabbed Settings; themed dropdowns; refreshed light theme; the sample ERP environment is selected automatically.
+- Sign-in with local username and password; secrets encrypted at rest (AES-256-GCM).
+- Desktop app mode (own window, free local port, stops on close); `.deb` with bundled Node.js (amd64/arm64) and tarball installer.
+- Portable bundles with their own Node.js and per-user installers for Linux (x64/arm64), macOS (arm64/x64) and Windows (x64). macOS and Windows are untested pre-release builds and are not code-signed.
+- The `.deb` removes an older `/opt/devhub` install automatically; data is kept.
+- Release workflow publishes bundles, `.deb` files, source tarball and `SHA256SUMS`.
