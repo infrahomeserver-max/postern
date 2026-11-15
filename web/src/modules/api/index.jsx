@@ -1,3 +1,4 @@
+import { loadUi } from '../../prefs.js';
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { setJob, setLast } from '../../status.js';
 import { useDocs, uid, api, download } from '../../api.js';
@@ -34,7 +35,7 @@ export default function ApiTester({ active }) {
   const tabsRef = useRef(tabs); tabsRef.current = tabs;
   const ctrls = useRef({}); const box = useRef(); const [newMenu, newMenuEl] = useContextMenu();
 
-  const cur = tabs.find(t => t.tid === tid) || tabs[0];
+  const cur = tabs.find(t => t.tid === tid) || tabs[0] || { tid: '', kind: 'none' };
   useEffect(() => { if (!tid && tabs[0]) setTid(tabs[0].tid); }, [tid, tabs]);
   const env = envs.items?.find(e => e.id === activeEnvId);
   const isEnvTab = cur.kind === 'env';
@@ -73,7 +74,7 @@ export default function ApiTester({ active }) {
       patch(id, { resp: r.resp, tests: r.tests, logs: r.logs, prepared: r.prepared, running: false });
       syncScope(before, scope.env, scope.globals);
       setLast({ ok: r.resp.status < 400, text: `${r.prepared.method} ${r.resp.status} · ${Math.round(r.resp.timeMs)} ms` });
-      hist.save({ id: uid(), at: Date.now(), method: r.prepared.method, url: r.prepared.url, status: r.resp.status, timeMs: r.resp.timeMs, size: r.resp.size, req: t.req }, { immediate: true });
+      if (loadUi().keepHistory) hist.save({ id: uid(), at: Date.now(), method: r.prepared.method, url: r.prepared.url, status: r.resp.status, timeMs: r.resp.timeMs, size: r.resp.size, req: t.req }, { immediate: true });
     } catch (e) {
       patch(id, { running: false, error: e.name === 'AbortError' ? 'Request cancelled' : e.message, resp: null, tests: [], logs: [] });
       setLast({ ok: false, text: e.name === 'AbortError' ? 'Request cancelled' : 'Request failed' });
@@ -114,12 +115,11 @@ export default function ApiTester({ active }) {
   };
 
   const closeTab = async (id, force) => {
-    const t = tabs.find(x => x.tid === id);
-    if (!force && t.dirty && t.req && !(await dlg.confirm('Discard changes?', `“${t.req.name}” has unsaved changes.`))) return;
+    const t = tabs.find(x => x.tid === id); if (!t) return;
+    if (!force && t.dirty && t.req && loadUi().confirmClose && !(await dlg.confirm('Discard changes?', `“${t.req.name}” has unsaved changes.`))) return;
     ctrls.current[id]?.abort();
     const rest = tabs.filter(x => x.tid !== id);
-    const next = rest.length ? rest : [mkTab()];
-    setTabs(next); if (tid === id) setTid(next[Math.max(0, tabs.findIndex(x => x.tid === id) - 1)]?.tid || next[0].tid);
+    setTabs(rest); if (tid === id) setTid(rest[Math.max(0, tabs.findIndex(x => x.tid === id) - 1)]?.tid || null);
   };
 
   useEffect(() => {
@@ -184,7 +184,7 @@ export default function ApiTester({ active }) {
         onHistory={(h) => openTab(mkTab(clone(h.req)))} onClearHistory={() => hist.clear()} />
       <div className="col grow" style={{ minWidth: 0 }}>
         <div className="row" style={{ borderBottom: '1px solid var(--line)', background: 'var(--panel)', paddingRight: 10 }}>
-          <div className="tabs grow" style={{ borderBottom: 0 }}>
+          <div className="tabs tabstrip" style={{ borderBottom: 0 }}>
             {tabs.map(t => (
               <div key={t.tid} draggable onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.tid); dragTab.current = t.tid; }}
                 onDragOver={(e) => { if (!dragTab.current) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ tid: t.tid, after: e.clientX > r.left + r.width / 2 }); }}
@@ -200,11 +200,14 @@ export default function ApiTester({ active }) {
               </div>))}
             <button className="icon-btn" onClick={(e) => newMenu(e, [{ label: 'REST request', run: () => openTab(mkTab()) }, { label: 'SOAP request', run: () => openTab(mkTab(newSoapRequest())) }])} title="New tab (Ctrl+T)" aria-label="New tab"><Icon n="plus" /></button>{newMenuEl}
           </div>
-          <select value={activeEnvId} onChange={(e) => chooseEnv(e.target.value)} aria-label="Environment" style={{ maxWidth: 190 }}>
+          <div className="envbar"><select value={activeEnvId} onChange={(e) => chooseEnv(e.target.value)} aria-label="Environment" style={{ maxWidth: 190 }}>
             <option value="">No environment</option>{envs.items?.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
-          <button className="btn sm" onClick={() => { setView('environments'); act('openEnv', activeEnvId || envs.items?.[0]?.id || '__globals'); }} title="Edit environment variables in a tab"><Icon n="gear" s={13} />Manage</button>
+          <button className="btn sm" onClick={() => { setView('environments'); act('openEnv', activeEnvId || envs.items?.[0]?.id || '__globals'); }} title="Edit environment variables in a tab"><Icon n="gear" s={13} />Manage</button></div>
         </div>
-        {isEnvTab ? (() => {
+        {cur.kind === 'none' ? (
+          <div className="empty grow"><div><Icon n="send" s={34} c="var(--muted)" /><h3>No open requests</h3><p className="muted">Open one from Collections, or start a new one.</p>
+            <button className="btn primary" onClick={() => openTab(mkTab())}><Icon n="plus" s={13} />New request <span className="muted">Ctrl+T</span></button></div></div>
+        ) : isEnvTab ? (() => {
           const isG = cur.envId === '__globals';
           const e = isG ? { id: '__globals', name: 'Globals', values: Object.entries(globals).map(([key, value]) => ({ key, value, enabled: true })) } : envs.items?.find(x => x.id === cur.envId);
           if (!e) return <div className="empty">This environment no longer exists</div>;

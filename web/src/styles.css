@@ -167,3 +167,23 @@ select:disabled { opacity: .55; cursor: not-allowed; }
 [data-theme="light"] .tab.active { color: var(--text); } [data-theme="light"] .kv th { background: var(--panel2); }
 [data-theme="light"] .code { background: #fbfbfd; } [data-theme="light"] .resizer { background: var(--line); }
 [data-theme="light"] .chip { background: #fff; } [data-theme="light"] .badge { background: var(--accent); }
+
+/* request tab bar: tabs scroll, environment controls stay pinned at the right */
+.tabstrip { flex: 1 1 0; min-width: 0; }
+.envbar { flex: none; display: flex; align-items: center; gap: 8px; padding-left: 10px; margin-left: 4px; border-left: 1px solid var(--line); }
+
+/* settings: left navigation styled like the main rail (same active look) */
+.set-wrap { flex-direction: row; }
+.set-nav { width: 210px; flex: none; padding: 14px 10px; border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; gap: 2px; overflow: auto; }
+.set-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; text-align: left; font: inherit; }
+.set-item:hover { background: var(--hover); color: var(--text); }
+.set-item.active { background: var(--sel); color: color-mix(in srgb, var(--brand) 70%, var(--text)); font-weight: 600; }
+.set-body { flex: 1; min-width: 0; overflow: auto; padding: 24px; }
+.set-toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.set-toggle input { margin-top: 3px; }
+@media (max-width: 760px) { .set-wrap { flex-direction: column; } .set-nav { width: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } }
+
+/* interface preferences */
+[data-density="compact"] .tab { padding: 4px 10px; } [data-density="compact"] .tree-item { padding: 2px 8px; } [data-density="compact"] .kv td input { padding-top: 3px; padding-bottom: 3px; } [data-density="compact"] .btn { padding-top: 3px; padding-bottom: 3px; }
+[data-wrap="1"] pre.code { white-space: pre-wrap; overflow-wrap: anywhere; }
+[data-motion="reduce"] *, [data-motion="reduce"] *::before, [data-motion="reduce"] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

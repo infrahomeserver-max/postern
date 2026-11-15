@@ -118,3 +118,7 @@ Menus: **File** (sign out, quit), **Edit**, **View**, **Security** (auto sign-ou
 ## Mock from a sample (anonymised)
 
 Mock servers → **From a sample (anonymised)…**. Paste or choose a real JSON or XML/SOAP response, optionally list field names to keep as-is (for harmless codes such as `status`), and choose how many list items to keep. You get the same structure with fake values: names, e-mails, ids, amounts, dates, phone numbers and URLs are replaced, formats are kept, and the same real value always maps to the same fake one so references between records still line up. A leak check searches the result for every original value and blocks creation if any survived. Field and tag names are kept; rename them yourself if a name is itself confidential.
+
+## Settings sections
+
+Appearance (mode, theme colour, contrast), **Interface** (zoom 80-150 %, compact density, reduced motion), **Requests & history** (warn before closing unsaved tabs, wrap long response lines, keep or clear history), Network, File types, Backup & restore, Account, Security & privacy, Shortcuts and About. Interface and request preferences are stored per browser/profile.

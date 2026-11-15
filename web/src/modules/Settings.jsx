@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { api, download, pickFile, useDocs } from '../api.js';
-import { Icon, Tabs, useToast } from '../ui.jsx';
+import { Icon, useToast } from '../ui.jsx';
 import { useDialogs } from '../dialogs.jsx';
 import { usePrefs, ACTIONS } from './sftp/prefs.js';
 import { useAppearance, BRANDS, DEFAULTS } from '../theme.js';
+import { useUi, UI_DEFAULTS } from '../prefs.js';
 
 const Card = ({ icon, title, children }) => (
   <section style={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
@@ -92,6 +93,46 @@ function Network() {
   );
 }
 
+const SECTIONS = [['appearance', 'sun', 'Appearance'], ['interface', 'edit', 'Interface'], ['requests', 'send', 'Requests & history'], ['network', 'globe', 'Network'], ['files', 'file', 'File types'], ['backup', 'save', 'Backup & restore'], ['account', 'lock', 'Account'], ['security', 'shield', 'Security & privacy'], ['shortcuts', 'code', 'Shortcuts'], ['about', 'box', 'About']];
+
+const Toggle = ({ label, hint, checked, onChange }) => (
+  <label className="set-toggle"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /><span><b>{label}</b>{hint && <span className="muted"> {hint}</span>}</span></label>
+);
+function Interface() {
+  const [u, set] = useUi();
+  return (
+    <div className="form" style={{ maxWidth: 560, rowGap: 12 }}>
+      <label>Zoom</label>
+      <div className="row" style={{ gap: 10 }}><input type="range" min="80" max="150" step="5" value={u.zoom} onChange={(e) => set({ zoom: +e.target.value })} aria-label="Interface zoom" style={{ width: 220 }} /><b>{u.zoom}%</b><span className="muted">Scales the whole window.</span></div>
+      <label>Density</label><div><Seg label="Density" value={u.density} onChange={(density) => set({ density })} options={[['comfortable', 'Comfortable'], ['compact', 'Compact']]} /></div>
+      <label>Motion</label><div><Toggle label="Reduce animations" hint="(spinners and transitions stay minimal)" checked={u.reduceMotion} onChange={(reduceMotion) => set({ reduceMotion })} /></div>
+      <span /><div><button type="button" className="btn sm" onClick={() => set({ zoom: UI_DEFAULTS.zoom, density: UI_DEFAULTS.density, reduceMotion: UI_DEFAULTS.reduceMotion })}>Reset</button></div>
+    </div>);
+}
+function RequestPrefs() {
+  const [u, set] = useUi(); const hist = useDocs('history'); const toast = useToast();
+  return (
+    <div className="col" style={{ gap: 12, maxWidth: 600 }}>
+      <Toggle label="Warn before closing a tab with unsaved changes" checked={u.confirmClose} onChange={(confirmClose) => set({ confirmClose })} />
+      <Toggle label="Wrap long lines in responses" hint="(JSON, XML and text bodies)" checked={u.wrapLines} onChange={(wrapLines) => set({ wrapLines })} />
+      <Toggle label="Keep request history" hint="(every sent request is listed under History)" checked={u.keepHistory} onChange={(keepHistory) => set({ keepHistory })} />
+      <div className="row" style={{ gap: 8 }}><button className="btn sm" disabled={!hist.items?.length} onClick={async () => { await hist.clear(); toast('History cleared', 'success'); }}>Clear history{hist.items?.length ? ` (${hist.items.length})` : ''}</button>
+        <span className="muted">Timeouts, redirects, proxy and certificates are under Network.</span></div>
+    </div>);
+}
+const SHORTCUTS = [['Ctrl/⌘ + Enter', 'Send the request'], ['Ctrl/⌘ + S', 'Save the request to a collection'], ['Ctrl/⌘ + T', 'New request tab'], ['Middle-click a tab', 'Close the tab'], ['Drag a tab', 'Reorder tabs'], ['Esc', 'Close a menu or dialog'], ['Double-click a file (SFTP)', 'Run its default action (see File types)'], ['Right-click', 'Context menu on collections, requests and files']];
+const Shortcuts = () => (<table className="kv" style={{ maxWidth: 560 }}><tbody>{SHORTCUTS.map(([k, d]) => <tr key={k}><td style={{ width: 230 }}><code className="mono">{k}</code></td><td>{d}</td></tr>)}</tbody></table>);
+function About() {
+  const plat = /Mac/i.test(navigator.platform) ? '~/Library/Application Support/Postern' : /Win/i.test(navigator.platform) ? '%APPDATA%\\Postern' : '~/.local/share/postern';
+  return (
+    <div className="form" style={{ maxWidth: 600, rowGap: 10 }}>
+      <label>Version</label><b>{typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev'}</b>
+      <label>Your data</label><span><code className="mono">{plat}</code> <span className="muted">(desktop and lite builds share it)</span></span>
+      <label>Source & issues</label><span className="muted">github.com/infrahomeserver-max/postern</span>
+      <label>Licence</label><span className="muted">See the LICENSE file in the repository.</span>
+    </div>);
+}
+
 export default function Settings({ user }) {
   const [tab, setTab] = useState(() => { try { return localStorage.getItem('dh.settingsTab') || 'appearance'; } catch { return 'appearance'; } });
   const pickTab = (t) => { setTab(t); try { localStorage.setItem('dh.settingsTab', t); } catch { /* ignore */ } };
@@ -123,12 +164,16 @@ export default function Settings({ user }) {
   };
   return (
     <div className="set-wrap">
-      <Tabs value={tab} onChange={pickTab} tabs={[{ id: 'appearance', label: 'Appearance' },{ id: 'network', label: 'Network' },{ id: 'files', label: 'File types' },{ id: 'backup', label: 'Backup & restore' },{ id: 'account', label: 'Account' },{ id: 'security', label: 'Security & privacy' }]} />
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <nav className="set-nav" aria-label="Settings sections">
+        {SECTIONS.map(([id, icon, label]) => <button key={id} className={'set-item' + (tab === id ? ' active' : '')} aria-current={tab === id ? 'page' : undefined} onClick={() => pickTab(id)}><Icon n={icon} s={16} />{label}</button>)}
+      </nav>
+      <div className="set-body">
+      <div style={{ maxWidth: 720 }}>
         {tab === 'appearance' && (<>
         <Card icon="sun" title="Appearance"><Appearance /></Card>
         </>)}
+        {tab === 'interface' && (<><Card icon="edit" title="Interface"><Interface /></Card></>)}
+        {tab === 'requests' && (<><Card icon="send" title="Requests & history"><RequestPrefs /></Card></>)}
         {tab === 'network' && (<>
         <Card icon="globe" title="Network"><Network /></Card>
         </>)}
@@ -151,6 +196,8 @@ export default function Settings({ user }) {
           </form>
         </Card>
         </>)}
+        {tab === 'shortcuts' && (<><Card icon="code" title="Keyboard shortcuts"><Shortcuts /></Card></>)}
+        {tab === 'about' && (<><Card icon="box" title="About Postern"><About /></Card></>)}
         {tab === 'security' && (<>
         <Card icon="shield" title="Security & privacy">
           <ul className="muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.9 }}>
