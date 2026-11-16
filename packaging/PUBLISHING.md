@@ -18,7 +18,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 ## Notes
-- Linux desktop `.deb` files are trimmed and verified in CI by `packaging/fix-deb.py` (apt rejects stray bytes after the archive; the step fails the build if a `.deb` is still invalid).
+- Linux desktop `.deb` files are built by `packaging/build-desktop-deb.sh` from electron-builder's unpacked app folder, replacing electron-builder's own `.deb`, which came out with stray bytes or a damaged xz stream on CI runners. The script verifies the result (archive layout and a full decompression of the file tree) and fails the build if it is bad.
 - `npmRebuild` is off: the engine is pure JavaScript, and rebuilding native modules breaks cross-architecture builds.
 - Local build for the current OS: `npm run build && npm run dist`. Lite bundles: `NODE_DIST_DIR=<extracted Node folder> bash packaging/build-portable.sh linux x64 dist`; `bash packaging/build-deb.sh`.
 

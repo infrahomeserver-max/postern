@@ -112,7 +112,7 @@ From the source tarball `postern-<ver>.tar.gz`: `sudo ./deploy/install.sh --serv
 
 ## Troubleshooting
 
-- **`apt` says "Invalid archive member header":** you have a `.deb` from an early v0.0.0 build that had stray bytes after the archive. Download the current release again (the Release workflow now trims and verifies every `.deb`).
+- **`apt` says "Invalid archive member header" or `dpkg` says "lzma error: compressed data is corrupt":** you have a `.deb` from an early v0.0.0 build whose package data was damaged. Download the current release again; the Release workflow now builds the `.deb` itself and verifies a full decompression before publishing.
 - **`apt` prints "Download is performed unsandboxed as root … couldn't be accessed by user _apt":** harmless; it only means the file sits in a folder `_apt` cannot read. Install still works.
 - **`curl … 404` in the quick-install script:** the release for that tag is not published yet (or failed). Check Actions → Release.
 
