@@ -65,11 +65,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-x64,   runner: ubuntu-24.04,     args: "--linux --x64" }
-          - { name: linux-arm64, runner: ubuntu-24.04-arm, args: "--linux --arm64" }
-          - { name: macos-arm64, runner: macos-latest,     args: "--mac --arm64" }
-          - { name: macos-x64,   runner: macos-15-intel,   args: "--mac --x64" }
-          - { name: windows-x64, runner: windows-2022,     args: "--win --x64" }
+          # deb/ai = the file-name parts of THIS job's own Linux files; every job must upload only its own files,
+          # because the publish job merges all artifacts into one folder and same-named files would overwrite each other
+          - { name: linux-x64,   runner: ubuntu-24.04,     args: "--linux --x64",   deb: amd64, ai: x86_64 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm, args: "--linux --arm64", deb: arm64, ai: arm64 }
+          - { name: macos-arm64, runner: macos-latest,     args: "--mac --arm64",   deb: none,  ai: none }
+          - { name: macos-x64,   runner: macos-15-intel,   args: "--mac --x64",     deb: none,  ai: none }
+          - { name: windows-x64, runner: windows-2022,     args: "--win --x64",     deb: none,  ai: none }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -96,15 +98,15 @@ jobs:
         run: |
           if [ "${{ matrix.name }}" = linux-arm64 ]; then arch=arm64; dir=dist-electron/linux-arm64-unpacked; else arch=amd64; dir=dist-electron/linux-unpacked; fi
           bash packaging/build-desktop-deb.sh "$dir" "$arch" dist-electron
-          (cd dist-electron && sha256sum Postern-*.deb > "verify-${{ matrix.name }}.sha256" && cat "verify-${{ matrix.name }}.sha256")
+          (cd dist-electron && sha256sum "Postern-$(node -p "require('../package.json').version")-linux-$arch.deb" > "verify-${{ matrix.name }}.sha256" && cat "verify-${{ matrix.name }}.sha256")
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
           compression-level: 0
           path: |
             dist-electron/verify-*.sha256
-            dist-electron/Postern-*.deb
-            dist-electron/Postern-*.AppImage
+            dist-electron/Postern-*-linux-${{ matrix.deb }}.deb
+            dist-electron/Postern-*-linux-${{ matrix.ai }}.AppImage
             dist-electron/Postern-*.dmg
             dist-electron/Postern-*.zip
             dist-electron/Postern-*.exe
