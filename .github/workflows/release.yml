@@ -96,10 +96,13 @@ jobs:
         run: |
           if [ "${{ matrix.name }}" = linux-arm64 ]; then arch=arm64; dir=dist-electron/linux-arm64-unpacked; else arch=amd64; dir=dist-electron/linux-unpacked; fi
           bash packaging/build-desktop-deb.sh "$dir" "$arch" dist-electron
+          (cd dist-electron && sha256sum Postern-*.deb > "verify-${{ matrix.name }}.sha256" && cat "verify-${{ matrix.name }}.sha256")
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
+          compression-level: 0
           path: |
+            dist-electron/verify-*.sha256
             dist-electron/Postern-*.deb
             dist-electron/Postern-*.AppImage
             dist-electron/Postern-*.dmg
@@ -111,6 +114,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { path: out, merge-multiple: true }
+      - name: Verify every .deb survived the artifact transfer (fails the release instead of publishing a broken file)
+        run: |
+          cd out
+          sha256sum -c verify-*.sha256
+          for f in Postern-*.deb postern-lite_*.deb; do dpkg-deb -I "$f" >/dev/null; dpkg-deb --fsys-tarfile "$f" | tar -t >/dev/null; echo "ok $f"; done
       - name: Checksums
         run: cd out && sha256sum postern-*.tar.gz postern-*.zip postern-lite_*.deb Postern-* > SHA256SUMS && cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
@@ -122,3 +130,16 @@ jobs:
             out/Postern-*
             out/SHA256SUMS
           generate_release_notes: true
+  verify-release:
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download the published .deb files again and test them
+        run: |
+          base="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}"
+          for f in "Postern-${GITHUB_REF_NAME#v}-linux-amd64.deb" "Postern-${GITHUB_REF_NAME#v}-linux-arm64.deb"; do
+            curl -fsSL --retry 3 -o "$f" "$base/$f"
+            dpkg-deb -I "$f" >/dev/null
+            dpkg-deb --fsys-tarfile "$f" | tar -t >/dev/null
+            echo "ok $f"
+          done
