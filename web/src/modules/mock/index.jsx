@@ -5,6 +5,7 @@ import { Icon, Modal, useToast, Spinner } from '../../ui.jsx';
 import { pickFile } from '../../api.js';
 import { useDialogs } from '../../dialogs.jsx';
 import Samples from './Samples.jsx';
+import { FORMATS } from './formats.js';
 import { anonymize } from './anonymize.js';
 
 const METHODS = ['ANY', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -120,6 +121,7 @@ function FromWsdl({ onClose, onCreate }) {
 /* Preview: generated mock next to the original sample, with search and changed-line marks */
 const normLines = (t, xml) => (xml ? t.replace(/<!--[\s\S]*?-->/g, '') : t).split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
 function Preview({ res, original }) {
+  const toast = useToast();
   const [mode, setMode] = useState('mock'); const [q, setQ] = useState(''); const [at, setAt] = useState(0);
   const xml = res.kind === 'xml';
   const mock = useMemo(() => normLines(res.output, xml), [res]);
@@ -131,7 +133,9 @@ function Preview({ res, original }) {
   const cur = hits[at]; const box = useRef();
   useEffect(() => { if (cur) box.current?.querySelector('[data-hit="' + cur + '"]')?.scrollIntoView({ block: 'center' }); }, [cur, mode]);
   const mark = (line) => { if (!needle) return line; const out = []; let i = 0; const lo = line.toLowerCase(); for (;;) { const j = lo.indexOf(needle, i); if (j < 0) break; out.push(line.slice(i, j), <mark key={j}>{line.slice(j, j + needle.length)}</mark>); i = j + needle.length; } out.push(line.slice(i)); return out; };
-  const pane = (side, ls, other) => <pre className="code cmp-pane" onScroll={mode === 'cmp' ? (e) => { const o = box.current?.querySelectorAll('.cmp-pane')[side === 'm' ? 1 : 0]; if (o && Math.abs(o.scrollTop - e.target.scrollTop) > 1) { o.scrollTop = e.target.scrollTop; o.scrollLeft = e.target.scrollLeft; } } : undefined}>
+  const copy = async (ls, label) => { const t = ls.join('\n'); try { await navigator.clipboard.writeText(t); } catch { const ta = document.createElement('textarea'); ta.value = t; document.body.append(ta); ta.select(); try { document.execCommand('copy'); } catch { /* blocked */ } ta.remove(); } toast(label + ' copied', 'success'); };
+  const selectPane = (side) => { const el = box.current?.querySelector('.cmp-pane[data-side="' + side + '"]'); if (!el) return; const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+  const pane = (side, ls, other) => <pre className="code cmp-pane" data-side={side} tabIndex={0} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectPane(side); } }} onScroll={mode === 'cmp' ? (e) => { const o = box.current?.querySelectorAll('.cmp-pane')[side === 'm' ? 1 : 0]; if (o && Math.abs(o.scrollTop - e.target.scrollTop) > 1) { o.scrollTop = e.target.scrollTop; o.scrollLeft = e.target.scrollLeft; } } : undefined}>
     {ls.map((l, i) => <div key={i} data-hit={side + i} className={'cmp-line' + (aligned && l !== other[i] ? ' chg' : '') + (cur === side + i ? ' cur' : '')}><span className="ln">{i + 1}</span><span>{mark(l) || ' '}</span></div>)}</pre>;
   return <div className="preview">
     {res.leaks.length ? <div className="chip err" style={{ display: 'block', whiteSpace: 'normal', marginBottom: 8 }}>{res.leaks.length} original value(s) still appear in the output — not safe to use: {res.leaks.slice(0, 5).map(l => l.slice(0, 20)).join(', ')}. Report this.</div>
@@ -142,6 +146,10 @@ function Preview({ res, original }) {
       {needle && <><span className="muted" style={{ fontSize: 12 }}>{hits.length ? `${at + 1} / ${hits.length}` : 'no match'}</span><button className="btn sm" disabled={!hits.length} onClick={() => setAt((at + hits.length - 1) % hits.length)} aria-label="Previous match">↑</button><button className="btn sm" disabled={!hits.length} onClick={() => setAt((at + 1) % hits.length)} aria-label="Next match">↓</button></>}
     </div>
     <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>{mode === 'cmp' ? (aligned ? 'Highlighted lines differ from your sample; plain lines were kept as they are (structure, names, type/version codes).' : 'Lists were shortened, so lines are not matched one-to-one.') + ' Left: your sample (stays on this screen, never saved). Right: the mock.' : <>Field and tag <b>names</b> are kept as structure. If a name itself is confidential, rename it after creating.</>}</div>
+    <div className="row" style={{ marginBottom: 6, gap: 6, flexWrap: 'wrap' }}>
+      {mode === 'cmp' && <><button className="btn sm" onClick={() => copy(orig, 'Sample')}><Icon n="copy" s={13} /> Copy sample</button><button className="btn sm" onClick={() => selectPane('o')}>Select sample</button></>}
+      <button className="btn sm" onClick={() => copy(mock, 'Mock')}><Icon n="copy" s={13} /> Copy mock</button><button className="btn sm" onClick={() => selectPane('m')}>Select mock</button>
+      <span className="muted" style={{ fontSize: 12 }}>You can also drag to select text, or click a pane and press Ctrl+A.</span></div>
     <div ref={box} className={mode === 'cmp' ? 'cmp two' : 'cmp'}>{mode === 'cmp' && pane('o', orig, mock)}{pane('m', mock, orig)}</div>
   </div>;
 }
@@ -149,14 +157,21 @@ function Preview({ res, original }) {
 function FromSample({ onClose, onCreate, hasMock }) {
   const [text, setText] = useState(''); const [keep, setKeep] = useState(''); const [items, setItems] = useState(3);
   const [method, setMethod] = useState('GET'); const [path, setPath] = useState('/records'); const [status, setStatus] = useState(200); const [target, setTarget] = useState(hasMock ? 'add' : 'new');
-  const [res, setRes] = useState(null); const [err, setErr] = useState('');
-  const run = () => { setErr(''); try { setRes(anonymize(text, { keep: keep.split(/[,\s]+/), maxItems: items })); } catch (e) { setRes(null); setErr(e.message); } };
+  const [res, setRes] = useState(null); const [err, setErr] = useState(''); const [tpl, setTpl] = useState(null); const [asIs, setAsIs] = useState(true);
+  const useTemplate = (id) => { const t = FORMATS.flatMap(g => g.items).find(x => x.id === id); if (!t) { setTpl(null); return; } setTpl(t); setAsIs(true); setText(t.body); setMethod(t.method); setPath(t.path); setStatus(t.status); setKeep(''); };
+  const run = () => { setErr(''); try { setRes(anonymize(text, { keep: keep.split(/[,\s]+/), maxItems: items, verbatim: !!tpl && asIs && text === tpl.body })); } catch (e) { setRes(null); setErr(e.message); } };
   return (
     <Modal title="Generate a mock response from a sample" onClose={onClose} expandable wide={!!res} footer={res
       ? <><button className="btn" onClick={() => setRes(null)}>Back</button><button className="btn primary" disabled={res.leaks.length > 0} onClick={() => onCreate({ method, path, status, body: res.output, kind: res.kind, target })}>{target === 'add' ? 'Add route to this mock' : 'Create mock'}</button></>
       : <button className="btn" onClick={onClose}>Cancel</button>}>
       {!res ? <>
         <p className="muted" style={{ marginTop: 0 }}>Paste or choose a real JSON or XML response. You get the <b>same structure with fake values</b>: names, ids, amounts, dates and e-mails are replaced, nothing from your sample is stored or sent anywhere. Everything runs in this window.</p>
+        <div className="row" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
+          <select value={tpl?.id || ''} onChange={(e) => useTemplate(e.target.value)} aria-label="Start from a known system" style={{ maxWidth: 260 }}>
+            <option value="">Start from a known system…</option>
+            {FORMATS.map(g => <optgroup key={g.group} label={g.group}>{g.items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</optgroup>)}
+          </select><span className="muted" style={{ fontSize: 12 }}>realistic response shapes with fictional values</span></div>
+        {tpl && text === tpl.body && <label className="row" style={{ marginBottom: 8, fontSize: 12.5 }}><input type="checkbox" checked={asIs} onChange={(e) => setAsIs(e.target.checked)} />Use this template’s values exactly as shown (untick to generate fresh random values)</label>}
         <div className="row" style={{ marginBottom: 8 }}><button className="btn sm" onClick={async () => { const f = await pickFile('.json,.xml,.txt'); if (f) setText(await f.text()); }}>Choose a file…</button><span className="muted">or paste below</span></div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ width: '100%', height: 150 }} spellCheck={false} placeholder='{ "employees": [ { "id": "E-1001", "name": "…" } ] }   or   <Response>…</Response>' aria-label="Sample response" />
         <div className="row" style={{ margin: '8px 0', flexWrap: 'wrap' }}>

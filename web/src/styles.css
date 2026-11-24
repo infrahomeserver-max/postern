@@ -224,3 +224,6 @@ a[href], a[href] * { cursor: pointer !important; }
 .cmp.two .cmp-pane { width: 50%; } .cmp-line { display: flex; gap: 10px; white-space: pre; padding: 0 6px; } .cmp-line .ln { color: var(--muted); opacity: .55; min-width: 3ch; text-align: right; user-select: none; flex: none; }
 .cmp-line.chg { background: color-mix(in srgb, var(--accent) 13%, transparent); } .cmp-line.cur { outline: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .cmp mark { background: #f5c451; color: #111; border-radius: 2px; }
+.cmp-pane, .cmp-pane * { user-select: text !important; -webkit-user-select: text !important; cursor: text !important; } .cmp-line .ln { user-select: none !important; }
+.cmp-pane ::selection, .cmp-pane::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.cmp-pane:focus-visible { outline: 2px solid var(--accent); }

@@ -11,10 +11,14 @@
 //  * Arrays are cut to `maxItems`; XML comments are dropped.
 //  * A leak check then searches the output for every original value (len >= 4) and reports any that survived.
 
-const WORDS = 'lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim minim veniam quis nostrud exercitation ullamco laboris nisi aliquip commodo consequat duis aute irure reprehenderit voluptate velit esse cillum fugiat nulla pariatur'.split(' ');
-const FIRST = ['Ada', 'Alan', 'Grace', 'Linus', 'Margaret', 'Dennis', 'Barbara', 'Ken', 'Radia', 'Tim', 'Hedy', 'Donald'];
-const LAST = ['Example', 'Sample', 'Testcase', 'Demo', 'Mockson', 'Placeholder', 'Specimen', 'Fakeman'];
-const COMPANY = ['Acme Corp', 'Globex Ltd', 'Initech', 'Umbrella Co', 'Hooli Inc', 'Stark Works', 'Wayne Supplies', 'Soylent GmbH'];
+const WORDS = 'account balance billing budget client contract coverage credit customer delivery department expense invoice ledger payment payroll period policy product project purchase quarterly receipt region report review service shipment standard supplier support tax transfer vendor warehouse annual approved central corporate current domestic general global internal monthly national primary regional regular revised scheduled special pending final open'.split(' ');
+const FIRST = ['Olivia', 'Liam', 'Priya', 'Mateo', 'Aisha', 'Noah', 'Mei', 'Lucas', 'Sofia', 'Arjun', 'Emma', 'Omar', 'Hannah', 'Diego', 'Yuki', 'Daniel'];
+const LAST = ['Smith', 'Patel', 'Garcia', 'Nguyen', 'Johnson', 'Kim', 'Rossi', 'Okafor', 'Schmidt', 'Silva', 'Brown', 'Khan', 'Martin', 'Tanaka', 'Anderson', 'Lopez'];
+const COMPANY = ['Acme Corporation', 'Globex Ltd', 'Initech Systems', 'Umbrella Logistics', 'Hooli Inc', 'Stark Industries', 'Wayne Supplies', 'Soylent GmbH', 'Northwind Traders', 'Contoso Ltd', 'Fabrikam Inc', 'Tailspin Toys'];
+const LABELS = ['Operating Expenses', 'Corporate Marketing', 'Travel and Entertainment', 'Professional Services', 'Cloud Hosting', 'Office Supplies', 'Regional Sales', 'Customer Support', 'Research and Development', 'Facilities', 'Software Licences', 'Accounts Payable'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'INR', 'CAD', 'AUD', 'CHF', 'SGD', 'SEK', 'NOK', 'DKK', 'NZD', 'ZAR', 'BRL', 'MXN', 'CNY', 'HKD', 'AED', 'PLN'];
+const COUNTRIES = ['US', 'GB', 'DE', 'FR', 'IN', 'CA', 'AU', 'JP', 'NL', 'SE', 'ES', 'IT', 'BR', 'SG', 'IE', 'CH'];
+const PREFIX = [[/invoice|bill/, ['INV']], [/order|sales/, ['SO']], [/purchase|po\b/, ['PO']], [/journal/, ['JE']], [/employee|worker|person|staff/, ['EMP']], [/supplier|vendor/, ['SUP']], [/customer|client/, ['CUS']], [/company|entity/, ['COMP']], [/account|ledger/, ['ACC']], [/asset/, ['FA']], [/project/, ['PRJ']], [/ticket|incident|case/, ['INC']]];
 const CITY = ['Springfield', 'Rivertown', 'Lakeside', 'Fairview', 'Oakdale', 'Maplewood'];
 
 function rng(seed) { // small deterministic PRNG so output is repeatable for the same input
@@ -25,7 +29,11 @@ const hash = (str) => { let h = 2166136261; for (let i = 0; i < str.length; i++)
 
 function makeFaker(salt) {
   const memo = new Map();
-  const mem = (kind, orig, make) => { const k = kind + '\u0000' + orig; if (!memo.has(k)) memo.set(k, make(rng(hash(k + salt)))); return memo.get(k); };
+  const mem = (kind, orig, make) => {
+    const k = kind + '\u0000' + orig;
+    if (!memo.has(k)) { let v; for (let t = 0; t < 8; t++) { v = make(rng(hash(k + salt + t))); if (String(v).toLowerCase() !== String(orig).toLowerCase()) break; } memo.set(k, v); }   // never hand back the real value
+    return memo.get(k);
+  };
   const pick = (r, a) => a[Math.floor(r() * a.length)];
   const digit = (r) => String(Math.floor(r() * 10));
   const hex = (r, n) => Array.from({ length: n }, () => '0123456789abcdef'[Math.floor(r() * 16)]).join('');
@@ -47,6 +55,14 @@ function makeFaker(salt) {
     const s = String(orig); if (!s.trim()) return s;
     const h = hint.toLowerCase();
     return mem('s', s, (r) => {
+      if (/^[0-9a-f]{32}$/i.test(s) || /(^|[^a-z])wid([^a-z]|$)/.test(h)) return hex(r, 32);      // Workday WID: 32 hex characters
+      if (/^[A-Z]{3}$/.test(s) && (/(curr|ccy)/.test(h) || CURRENCIES.includes(s))) return pick(r, CURRENCIES); // real ISO 4217 codes stay real
+      if (/^[A-Z]{2}$/.test(s) && (/(country|nation|region)/.test(h) || COUNTRIES.includes(s))) return pick(r, COUNTRIES);
+      if (/^[A-Za-z]{2,6}[-_/]\d{2,}$/.test(s) && !/(token|secret)/.test(h)) { // "FVB-190" -> "INV-48210": a plausible prefix for the field, same digit count
+        const pre = (PREFIX.find(([re]) => re.test(h)) || [null, ['REF', 'DOC', 'TXN', 'ID']])[1]; const sep = s.match(/[-_/]/)[0];
+        return pick(r, pre) + sep + s.split(/[-_/]/)[1].replace(/\d/g, (c, k) => (k === 0 ? String(1 + Math.floor(r() * 9)) : digit(r))); }
+      if (/(descriptor|display.?name|refname)/.test(h) && /^[\p{L}][\p{L}.'-]+( [\p{L}][\p{L}.'-]+){1,2}$/u.test(s) && !/\d/.test(s)) return /^[A-Z][a-z]+ [A-Z][a-z'-]+$/.test(s) ? `${pick(r, FIRST)} ${pick(r, LAST)}` : pick(r, LABELS);   // Workday / NetSuite label: a person or a business label
+      if (/(object|account|ledger|cost.?center|department|organi[sz]ation|project|product|item|position|job|location|category|group|label|title)/.test(h) && !/(first|last|user|employee|worker|person|customer)/.test(h) && /^[\p{L}0-9 &.,'()/-]+$/u.test(s) && s.length < 70 && /\s|^[A-Z][a-z]/.test(s) && !/id$/.test(h)) return pick(r, LABELS);
       if (isUuid(s)) return [hex(r, 8), hex(r, 4), '4' + hex(r, 3), '8' + hex(r, 3), hex(r, 12)].join('-');
       if (isDateish(s)) { // keep the exact format, move to a random valid day in 2020-2024 and a valid time
         const p = (n) => String(n).padStart(2, '0');
@@ -62,6 +78,7 @@ function makeFaker(salt) {
       if (/^(eyJ[\w-]+\.){2}[\w-]*$/.test(s)) return 'eyJhbGciOiJub25lIn0.eyJzdWIiOiJtb2NrIn0.'; // JWT
       if (/(^|[^a-z])(e?mail)/.test(h)) return `${pick(r, FIRST).toLowerCase()}.${hex(r, 3)}@example.com`;
       if (/(first.?name|given)/.test(h)) return pick(r, FIRST);
+      if (/(^|[^a-z])(country|nation)/.test(h) && /^[A-Za-z .]{3,}$/.test(s)) return pick(r, ['United States', 'Germany', 'India', 'Canada', 'Japan', 'France', 'Australia', 'Brazil']);
       if (/(last.?name|surname|family)/.test(h)) return pick(r, LAST);
       if (/(^|[^a-z])(name|fullname|employee|manager|user|owner|contact|customer|person|author)([^a-z]|$)/.test(h) && /^[\p{L} .'-]+$/u.test(s) && s.length < 60) return `${pick(r, FIRST)} ${pick(r, LAST)}`;
       if (/(company|org|vendor|supplier|tenant|employer|legal.?entity|client)/.test(h) && !/id$/.test(h)) return pick(r, COMPANY);
@@ -104,13 +121,14 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
 const escAttr = (s) => esc(s).replace(/"/g, '&quot;');
 
 function walkXml(src, f, ctx) {
-  let out = '', i = 0; const stack = [];
+  let out = '', i = 0; const stack = [], hints = [];   // hints: the wd:type of the open element (WID, Currency_ID ...) tells what its text is
+  const hint = () => hints[hints.length - 1] || stack[stack.length - 1] || '';
   const n = src.length;
   while (i < n) {
     if (src[i] !== '<') {
       let j = src.indexOf('<', i); if (j < 0) j = n;
       const t = src.slice(i, j);
-      out += anonText(t, stack[stack.length - 1] || '', f, ctx); i = j; continue;
+      out += anonText(t, stack[stack.length - 1] || '', f, ctx, false, hint()); i = j; continue;
     }
     if (src.startsWith('<!--', i)) { const e = src.indexOf('-->', i + 4); i = e < 0 ? n : e + 3; continue; } // comments dropped
     if (src.startsWith('<![CDATA[', i)) { const e = src.indexOf(']]>', i + 9); const body = src.slice(i + 9, e < 0 ? n : e); out += '<![CDATA[' + anonText(body, stack[stack.length - 1] || '', f, ctx, true) + ']]>'; i = e < 0 ? n : e + 3; continue; }
@@ -120,7 +138,7 @@ function walkXml(src, f, ctx) {
     let j = i + 1, q = '';
     for (; j < n; j++) { const c = src[j]; if (q) { if (c === q) q = ''; } else if (c === '"' || c === "'") q = c; else if (c === '>') break; }
     const raw = src.slice(i + 1, j); i = j + 1;
-    if (raw[0] === '/') { stack.pop(); out += '<' + raw + '>'; continue; }
+    if (raw[0] === '/') { stack.pop(); hints.pop(); out += '<' + raw + '>'; continue; }
     const self = raw.endsWith('/');
     const m = /^([^\s/>]+)([\s\S]*?)(\/?)$/.exec(raw);
     const name = m[1]; const local = name.replace(/^.*:/, '');
@@ -134,17 +152,17 @@ function walkXml(src, f, ctx) {
       return `${an}="${escAttr(f.str(plain, an))}"`;
     });
     out += '<' + name + attrs + (self ? '/' : '') + '>';
-    if (!self) stack.push(local);
+    if (!self) { stack.push(local); hints.push((/(?:^|[\s:])type\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(m[2]) || []).slice(1).find(Boolean) || ''); }
   }
   return out;
 }
-function anonText(t, tag, f, ctx, raw = false) {
+function anonText(t, tag, f, ctx, raw = false, hint = '') {
   if (!t.trim()) return t;
   const lead = t.match(/^\s*/)[0], trail = t.match(/\s*$/)[0]; const core = t.slice(lead.length, t.length - trail.length);
   const plain = raw ? core : unesc(core);
   if (ctx.keep.has(tag.toLowerCase()) || ctx.keep.has(plain.toLowerCase())) return t;
   collect(ctx, plain);
-  const v = /^-?\d+(\.\d+)?$/.test(plain) ? String(f.num(plain)) : f.str(plain, tag);
+  const v = /^-?\d+(\.\d+)?$/.test(plain) ? String(f.num(plain)) : f.str(plain, hint || tag);
   return lead + (raw ? v : esc(v)) + trail;
 }
 
@@ -157,6 +175,11 @@ export function anonymize(text, opts = {}) {
   const ctx = { keep, maxItems, originals: new Set() };
   const f = makeFaker(opts.salt ?? 'postern'); // memo is per call
   const kind = detect(text);
+  if (opts.verbatim) {   // built-in templates: the values are already fictional, so keep them exactly as written
+    let output = String(text).trim();
+    if (kind === 'json') { try { output = JSON.stringify(JSON.parse(text), null, 2); } catch (e) { throw new Error('That isn’t valid JSON: ' + e.message); } }
+    return { kind, output, stats: { checked: 0, kept: [] }, leaks: [], verbatim: true };
+  }
   let output;
   if (kind === 'json') {
     let v; try { v = JSON.parse(text); } catch (e) { throw new Error('That isn’t valid JSON: ' + e.message); }

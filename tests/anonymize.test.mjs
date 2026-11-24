@@ -82,3 +82,14 @@ test('XML type/version attributes are kept; "keep" also matches exact values', (
   assert.match(r.output, /wd:type="Currency_ID"/); assert.match(r.output, /wd:version="v41\.0"/); assert.match(r.output, />USD</);
   assert.match(r.output, /wd:type="WID"/); assert.doesNotMatch(r.output, /1234567890abcdef/);
 });
+
+test('realistic values: WID is 32 hex, currency stays a real ISO code, prefixed ids keep a plausible shape, never the original', () => {
+  const x = '<r xmlns:wd="u"><wd:ID wd:type="WID">1234567890abcdef</wd:ID><wd:ID wd:type="Currency_ID">USD</wd:ID><wd:Financial_Object_Name>Grace Sample</wd:Financial_Object_Name><wd:Ref>FVB-190</wd:Ref></r>';
+  const o = anonymize(x, {}).output;
+  assert.match(o, /wd:type="WID">[0-9a-f]{32}</); assert.match(o, /Currency_ID">(USD|EUR|GBP|JPY|INR|CAD|AUD|CHF|SGD|SEK|NOK|DKK|NZD|ZAR|BRL|MXN|CNY|HKD|AED|PLN)</);
+  assert.doesNotMatch(o, /USD<\/wd:ID><wd:Fin/); assert.match(o, /<wd:Ref>[A-Z]{2,4}-\d{3}</); assert.doesNotMatch(o, /FVB-190|Grace Sample/);
+});
+test('verbatim mode keeps built-in template values', async () => {
+  const { FORMATS } = await import('../web/src/modules/mock/formats.js');
+  for (const t of FORMATS.flatMap(g => g.items)) { const r = anonymize(t.body, { verbatim: true }); assert.equal(r.kind, t.kind, t.id); assert.ok(r.output.length > 50, t.id); if (t.kind === 'json') assert.doesNotThrow(() => JSON.parse(r.output)); }
+});
