@@ -52,14 +52,14 @@ Install the newer file over the old one (`sudo apt install ./Postern-<ver>-linux
 
 ## Quick install, verify and clean test (Ubuntu / Debian)
 
-One command downloads a release, checks its checksum, removes any older Postern and installs it. Your data is kept unless you add `--fresh`.
+One command downloads a release, checks its checksum, removes any older Postern and installs it. Your data is kept unless you add `--purge`.
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/infrahomeserver-max/postern/main/packaging/test-release.sh
-bash test-release.sh            # latest published release, keep my data
-bash test-release.sh --fresh    # first-run test: also wipes ~/.local/share/postern
-bash test-release.sh v0.0.0     # a specific release
+curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash                    # latest release, keeps your data (also how you upgrade)
+curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash -s -- --purge     # clean install: also wipes ~/.local/share/postern
+curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash -s -- v0.0.0      # a specific release
 ```
+`install.sh` is attached to every release, so the same script also sits next to the downloads on the release page.
 
 The `.deb` is about 100 MB, so the progress bar may crawl on a slow link. The script needs a *published* release: wait until the Release workflow is green. Run it from any folder; it cleans up after itself.
 

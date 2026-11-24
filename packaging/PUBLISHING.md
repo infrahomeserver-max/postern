@@ -8,7 +8,7 @@ Repository: `infrahomeserver-max/postern` (public). Releases are built by `.gith
 3. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 4. The **Release** workflow checks the tag matches `package.json`, builds the source tarball, the lite `.deb` files, the lite portable bundles and the desktop installers for Linux, macOS and Windows, then **publish** writes `SHA256SUMS` and attaches everything to the GitHub release. It takes about 6 minutes.
 5. Open Actions → Release and confirm every job is green. If one job fails on an artifact upload timeout, use **Re-run failed jobs** (not a full re-run).
-6. Smoke-test: `bash packaging/test-release.sh vX.Y.Z --fresh`.
+6. Smoke-test: `bash packaging/install.sh vX.Y.Z --purge` (the workflow also attaches it to the release as `install.sh`).
 
 ## Re-doing a release (same tag)
 Delete the release on the Releases page, then:

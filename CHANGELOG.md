@@ -9,6 +9,7 @@ Early public release: expect rough edges and breaking changes before 0.1.
 - **Desktop app (Electron)** with a hardened window (sandboxed page, no Node, outside network blocked, per-launch token between window and engine, loopback Host check), optional idle auto sign-out, installers for Linux (deb, AppImage), macOS (dmg) and Windows (installer, portable). The earlier browser-window bundles remain as "lite".
 - SFTP sign-in with the SSH agent, or password + one-time code (keyboard-interactive / 2FA), besides password and private key.
 - API Tester: JWT (HMAC), Digest and AWS Signature v4 auth; OAuth 2 password and refresh-token grants; a short description for each auth type.
+- One-line Linux installer attached to every release: `curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash` (verifies the checksum; `--purge` for a clean install).
 - Side panels (Requests, Mocks, SFTP): drag the divider to resize, double-click it or use the hide button / Ctrl+B to collapse; the panel follows the active tab (environment tab → Environments, request tab → its place in Collections).
 - Ask before sending when an environment is active: Cancel / Send now bar that sends by itself after N seconds (Settings → Requests & history; 0 = wait). Each collection remembers its environment; the picker only appears once an environment exists.
 - Hover a `{{variable}}` in the request editor to see, edit or define its value.

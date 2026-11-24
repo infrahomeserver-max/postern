@@ -27,8 +27,8 @@ Download from the [Releases](https://github.com/infrahomeserver-max/postern/rele
 Quickest way on Ubuntu / Debian (downloads, verifies, removes any older copy and installs):
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/infrahomeserver-max/postern/main/packaging/test-release.sh
-bash test-release.sh v0.0.0          # add --fresh for a first-run test that also wipes your data
+curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash
+# clean install that also wipes your Postern data:  curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash -s -- --purge
 postern
 ```
 

@@ -114,6 +114,7 @@ jobs:
     needs: [tarball, deb, portable, desktop]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { path: out, merge-multiple: true }
       - name: Verify every .deb survived the artifact transfer (fails the release instead of publishing a broken file)
@@ -121,6 +122,8 @@ jobs:
           cd out
           sha256sum -c verify-*.sha256
           for f in Postern-*.deb postern-lite_*.deb; do dpkg-deb -I "$f" >/dev/null; dpkg-deb --fsys-tarfile "$f" | tar -t >/dev/null; echo "ok $f"; done
+      - name: One-line installer (attached to every release)
+        run: bash -n packaging/install.sh && cp packaging/install.sh out/install.sh
       - name: Checksums
         run: cd out && sha256sum postern-*.tar.gz postern-*.zip postern-lite_*.deb Postern-* > SHA256SUMS && cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
@@ -131,6 +134,7 @@ jobs:
             out/postern-lite_*.deb
             out/Postern-*
             out/SHA256SUMS
+            out/install.sh
           generate_release_notes: true
   verify-release:
     needs: publish
