@@ -1,5 +1,5 @@
 import { useState, useMemo, memo, useEffect } from 'react';
-import { Icon, useContextMenu, useDebounced } from '../../ui.jsx';
+import { Icon, useContextMenu, useDebounced, SideResizer, SideRestore } from '../../ui.jsx';
 import { countRequests } from './engine.js';
 import { fmtDate } from '../../api.js';
 
@@ -50,7 +50,7 @@ function Collection({ c, open, toggle, q, act, activeId, f }) {
   </>;
 }
 
-export default function Sidebar({ collections, history, envs, activeEnvId, activeEnvTab, act, activeId, onHistory, onClearHistory, view, setView }) {
+export default function Sidebar({ collections, history, envs, activeEnvId, activeEnvTab, act, activeId, onHistory, onClearHistory, view, setView, panel }) {
   const [open, setOpen] = useState(new Set());
   const [kind, setKind] = useState('all'); const [search, setSearch] = useState(''); const q = useDebounced(search.trim().toLowerCase(), 150);
   // reveal the active request in the tree
@@ -59,21 +59,30 @@ export default function Sidebar({ collections, history, envs, activeEnvId, activ
     const trail = (items, path) => { for (const it of items) { if (it.id === activeId) return path; if (it.type === 'folder') { const r = trail(it.items, [...path, it.id]); if (r) return r; } } return null; };
     for (const c of collections) { const r = trail(c.items, [c.id]); if (r) { setOpen(s => r.every(x => s.has(x)) ? s : new Set([...s, ...r])); break; } }
   }, [activeId, collections === null]); // reveal when the active request changes, not on every save (so "Collapse all" stays collapsed)
+  // keep the active item in view: scroll it into the visible part of the list, and widen the type filter if it hides it
+  useEffect(() => {
+    if (!activeId || kind === 'all' || !collections) return;
+    const find = (items) => items.some(it => it.id === activeId ? !kindOk(it, kind) : it.type === 'folder' && find(it.items));
+    if (collections.some(c => find(c.items))) setKind('all');
+  }, [activeId]); // eslint-disable-line
+  useEffect(() => { const t = setTimeout(() => document.querySelector('.side .tree-item.active')?.scrollIntoView({ block: 'nearest' }), 60); return () => clearTimeout(t); }, [activeId, activeEnvTab, view]);
   const toggle = (id) => setOpen(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const hist = useMemo(() => { const g = {}; (history || []).forEach(h => { const d = new Date(h.at).toDateString(); (g[d] ||= []).push(h); }); return Object.entries(g); }, [history]);
-  return (
-    <aside className="side" aria-label="Collections">
+  if (panel.collapsed) return <SideRestore p={panel} />;
+  return (<>
+    <aside className="side" aria-label="Collections" style={{ width: panel.w }}>
       <div className="row" style={{ padding: 8, gap: 6 }}>
         <div className="grow row" style={{ position: 'relative' }}><span style={{ position: 'absolute', left: 8, color: 'var(--muted)' }}><Icon n="search" s={13} /></span>
           <input style={{ width: '100%', paddingLeft: 28 }} placeholder="Search requests" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search" /></div>
         <button className="icon-btn" title="Collapse all folders" aria-label="Collapse all" onClick={() => setOpen(new Set())}><Icon n="collapse" /></button>
         <button className="icon-btn" title="New collection" onClick={() => act('newColl')}><Icon n="plus" /></button>
         <button className="icon-btn" title="Import" onClick={() => act('import')}><Icon n="upload" /></button>
+        <button className="icon-btn" title="Hide side panel (Ctrl+B)" aria-label="Hide side panel" onClick={panel.toggle}><Icon n="panel" /></button>
       </div>
       <div className="tabs" role="tablist">
-        <button role="tab" className={'tab' + (view === 'collections' ? ' active' : '')} onClick={() => setView('collections')}><Icon n="box" s={13} />Collections</button>
-        <button role="tab" className={'tab' + (view === 'environments' ? ' active' : '')} onClick={() => setView('environments')}><Icon n="globe" s={13} />Environments</button>
-        <button role="tab" className={'tab' + (view === 'history' ? ' active' : '')} onClick={() => setView('history')}><Icon n="hist" s={13} />History</button>
+        <button role="tab" title="Collections" className={'tab' + (view === 'collections' ? ' active' : '')} onClick={() => setView('collections')}><Icon n="box" s={13} /><span className="tl">Collections</span></button>
+        <button role="tab" title="Environments" className={'tab' + (view === 'environments' ? ' active' : '')} onClick={() => setView('environments')}><Icon n="globe" s={13} /><span className="tl">Environments</span></button>
+        <button role="tab" title="History" className={'tab' + (view === 'history' ? ' active' : '')} onClick={() => setView('history')}><Icon n="hist" s={13} /><span className="tl">History</span></button>
       </div>
       <div className="col" style={{ flex: 1, overflow: 'auto', padding: 6 }}>
         {view === 'collections' && collections?.length > 0 && <div className="seg" role="group" aria-label="Request type filter" style={{ alignSelf: 'flex-start', margin: '2px 4px 6px' }}>
@@ -101,5 +110,6 @@ export default function Sidebar({ collections, history, envs, activeEnvId, activ
           : <div className="empty">Requests you send will appear here</div>)}
       </div>
     </aside>
-  );
+    <SideResizer p={panel} />
+  </>);
 }

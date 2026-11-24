@@ -2,13 +2,14 @@ import { loadUi } from '../../prefs.js';
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { setJob, setLast } from '../../status.js';
 import { useDocs, uid, api, download } from '../../api.js';
-import { Icon, useToast, Spinner, useContextMenu } from '../../ui.jsx';
+import { Icon, useToast, Spinner, useContextMenu, useSidePanel } from '../../ui.jsx';
 import { useDialogs } from '../../dialogs.jsx';
 import { newRequest, newSoapRequest, execute, envToVars, mapTree, filterTree, prepare, resolve } from './engine.js';
 import Sidebar from './Sidebar.jsx';
 import Editor from './Editor.jsx';
 import Response from './Response.jsx';
 import EnvEditor from './EnvEditor.jsx';
+import VarHover from './VarHover.jsx';
 
 // Dialogs are separate chunks, fetched only when first opened.
 const lz = (n) => lazy(() => import('./Modals.jsx').then(m => ({ default: m[n] })));
@@ -23,9 +24,13 @@ const reId = (it) => ({ ...it, id: uid(), ...(it.items ? { items: it.items.map(r
 export default function ApiTester({ active }) {
   const toast = useToast(); const dlg = useDialogs();
   const coll = useDocs('collection'), envs = useDocs('environment'), hist = useDocs('history');
+  const panel = useSidePanel('api', 290, active);
   const [activeEnvId, setActiveEnvId] = useState(() => localStorage.getItem('dh.env') || '');
+  const readMap = () => { try { return JSON.parse(localStorage.getItem('dh.envByColl') || '{}'); } catch { return {}; } };
+  const [envByColl, setEnvByColl] = useState(readMap);   // each collection remembers the environment you last used with it
   const dragTab = useRef(null); const [dropAt, setDropAt] = useState(null);
-  useEffect(() => { const h = (e) => setActiveEnvId(e.detail || ''); addEventListener('postern:env-chosen', h); return () => removeEventListener('postern:env-chosen', h); }, []);
+  const [pending, setPending] = useState(null); const [left, setLeft] = useState(0); const sendRef = useRef(); // confirm-before-send countdown
+  useEffect(() => { const h = (e) => { setActiveEnvId(e.detail || ''); setEnvByColl(readMap()); }; addEventListener('postern:env-chosen', h); return () => removeEventListener('postern:env-chosen', h); }, []);
   const [globals, setGlobalsState] = useState(() => { try { return JSON.parse(localStorage.getItem('dh.globals') || '{}'); } catch { return {}; } });
   const [tabs, setTabs] = useState(() => [mkTab()]);
   const [tid, setTid] = useState(() => null);
@@ -42,7 +47,24 @@ export default function ApiTester({ active }) {
   const vars = { ...globals, ...envToVars(env) };
 
   const setGlobals = (g) => { setGlobalsState(g); localStorage.setItem('dh.globals', JSON.stringify(g)); };
-  const chooseEnv = (id) => { setActiveEnvId(id); localStorage.setItem('dh.env', id); };
+  const rememberEnv = (cid, id) => setEnvByColl(m => { const n = { ...m, [cid]: id }; try { localStorage.setItem('dh.envByColl', JSON.stringify(n)); } catch { /* private mode */ } return n; });
+  const chooseEnv = (id) => { setActiveEnvId(id); try { localStorage.setItem('dh.env', id); } catch { /* private mode */ } if (cur.src?.cid) rememberEnv(cur.src.cid, id); };
+  // opening a request from a collection switches to the environment last used with that collection ("No environment" if none yet)
+  useEffect(() => {
+    const cid = cur.src?.cid; if (!cid || cur.kind === 'env') return;
+    const want = envByColl[cid] ?? ''; setActiveEnvId(want); try { localStorage.setItem('dh.env', want); } catch { /* private mode */ }
+  }, [cur.tid, cur.src?.cid]); // eslint-disable-line
+  // the side panel follows the active tab: environment tab -> Environments list, saved request -> its place in Collections
+  useEffect(() => { if (!cur.tid) return; if (cur.kind === 'env') setView('environments'); else if (cur.src) setView('collections'); }, [cur.tid]); // eslint-disable-line
+  const lookupVar = (k) => {
+    const ev = env?.values.find(v => v.key === k && v.enabled !== false); if (ev) return { scope: 'env', label: env.name, value: ev.value, secret: !!ev.secret };
+    if (Object.prototype.hasOwnProperty.call(globals, k)) return { scope: 'global', label: 'Globals', value: String(globals[k]) };
+    return { scope: null };
+  };
+  const saveVar = (k, value, scope) => {
+    if (scope === 'env' && env) { const has = env.values.some(v => v.key === k); envs.save({ ...env, values: has ? env.values.map(v => v.key === k ? { ...v, value } : v) : [...env.values, { key: k, value, enabled: true }] }, { immediate: true }); }
+    else setGlobals({ ...globals, [k]: value });
+  };
   const patch = useCallback((id, fn) => setTabs(ts => ts.map(t => t.tid === id ? { ...t, ...(typeof fn === 'function' ? fn(t) : fn) } : t)), []);
   const setReq = (p) => cur.req && patch(cur.tid, t => ({ req: { ...t.req, ...p }, dirty: true }));
   const openTab = (t) => { setTabs(ts => [...ts, t]); setTid(t.tid); };
@@ -80,6 +102,27 @@ export default function ApiTester({ active }) {
       setLast({ ok: false, text: e.name === 'AbortError' ? 'Request cancelled' : 'Request failed' });
     } finally { setJob('api:' + id, null); }
   };
+
+  sendRef.current = send;
+  /* With an environment active, ask first: Cancel / Send now, or it goes by itself after a few seconds (Settings -> Requests & history) */
+  const trySend = (id = cur.tid) => {
+    const t = tabsRef.current.find(x => x.tid === id); if (!t?.req || t.running) return;
+    const u = loadUi();
+    if (u.confirmSend && env) {
+      if (pending?.tid === id) { setPending(null); return send(id); }       // pressing Send again = send now
+      if (!t.req.url.trim()) return toast('Enter a URL first', 'error');
+      const ms = Math.max(0, Number(u.confirmSendSecs) || 0) * 1000;
+      setPending({ tid: id, start: Date.now(), ms }); setLeft(ms); return;
+    }
+    send(id);
+  };
+  useEffect(() => {
+    if (!pending || !pending.ms) return;
+    const iv = setInterval(() => { const l = pending.ms - (Date.now() - pending.start); if (l <= 0) { clearInterval(iv); setPending(null); sendRef.current(pending.tid); } else setLeft(l); }, 100);
+    return () => clearInterval(iv);
+  }, [pending]);
+  useEffect(() => { setPending(p => (p && p.tid !== cur.tid) ? null : p); }, [cur.tid]);   // switching tabs cancels
+  useEffect(() => { setPending(null); }, [activeEnvId]);
 
   /* Operation dropdown: regenerate envelope + SOAPAction from the WSDL (cached from import, or re-downloaded from its URL) */
   const switchOp = async (name) => {
@@ -127,7 +170,8 @@ export default function ApiTester({ active }) {
     const h = (e) => {
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); doSave(); }
-      else if (mod && e.key === 'Enter') { e.preventDefault(); send(); }
+      else if (mod && e.key === 'Enter') { e.preventDefault(); trySend(); }
+      else if (e.key === 'Escape' && pending) setPending(null);
       else if (mod && e.key.toLowerCase() === 't') { e.preventDefault(); openTab(mkTab()); }
     };
     addEventListener('keydown', h); return () => removeEventListener('keydown', h);
@@ -180,7 +224,7 @@ export default function ApiTester({ active }) {
   const runColl = modal?.type === 'run' ? coll.items?.find(c => c.id === modal.cid) : null;
   return (
     <>
-      <Sidebar collections={coll.items} history={hist.items} envs={envs.items} activeEnvId={activeEnvId} activeEnvTab={isEnvTab ? cur.envId : null} view={view} setView={setView} act={act} activeId={cur.src?.rid}
+      <Sidebar panel={panel} collections={coll.items} history={hist.items} envs={envs.items} activeEnvId={activeEnvId} activeEnvTab={isEnvTab ? cur.envId : null} view={view} setView={setView} act={act} activeId={cur.src?.rid}
         onHistory={(h) => openTab(mkTab(clone(h.req)))} onClearHistory={() => hist.clear()} />
       <div className="col grow" style={{ minWidth: 0 }}>
         <div className="row" style={{ borderBottom: '1px solid var(--line)', background: 'var(--panel)', paddingRight: 10 }}>
@@ -200,8 +244,8 @@ export default function ApiTester({ active }) {
               </div>))}
             <button className="icon-btn" onClick={(e) => newMenu(e, [{ label: 'REST request', run: () => openTab(mkTab()) }, { label: 'SOAP request', run: () => openTab(mkTab(newSoapRequest())) }])} title="New tab (Ctrl+T)" aria-label="New tab"><Icon n="plus" /></button>{newMenuEl}
           </div>
-          <div className="envbar"><select value={activeEnvId} onChange={(e) => chooseEnv(e.target.value)} aria-label="Environment" style={{ maxWidth: 190 }}>
-            <option value="">No environment</option>{envs.items?.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
+          <div className="envbar">{envs.items?.length > 0 && <select value={env ? activeEnvId : ''} onChange={(e) => chooseEnv(e.target.value)} aria-label="Environment" style={{ maxWidth: 190 }}>
+            <option value="">No environment</option>{envs.items?.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select>}
           <button className="btn sm" onClick={() => { setView('environments'); act('openEnv', activeEnvId || envs.items?.[0]?.id || '__globals'); }} title="Edit environment variables in a tab"><Icon n="gear" s={13} />Manage</button></div>
         </div>
         {cur.kind === 'none' ? (
@@ -216,15 +260,24 @@ export default function ApiTester({ active }) {
             onRename={(name) => envs.save({ ...e, name })} onSetActive={() => chooseEnv(activeEnvId === e.id ? '' : e.id)}
             onDelete={async () => { if (await dlg.confirm('Delete environment?', `“${e.name}” will be deleted.`)) { if (activeEnvId === e.id) chooseEnv(''); envs.remove(e.id); closeTab(cur.tid, true); } }} />;
         })() : (
+        <>
+        {pending?.tid === cur.tid && env && (() => { let u = cur.req.url; try { const pr = prepare(cur.req, vars); u = `${pr.method} ${pr.url}`; } catch { /* show raw url */ } const prod = /prod|live/i.test(env.name);
+          return <div className={'confirm-send' + (prod ? ' warn' : '')} role="alertdialog" aria-label="Confirm sending">
+            <Icon n="send" s={15} /><div className="grow" style={{ minWidth: 0 }}><div><b>Send to “{env.name}”?</b> <span className="muted">{pending.ms ? `Sending in ${Math.ceil(left / 1000)}s` : 'Waiting for your OK'}</span></div><div className="mono ellipsis muted" style={{ fontSize: 12 }}>{u}</div></div>
+            <button className="btn sm" onClick={() => setPending(null)}>Cancel</button>
+            <button className="btn sm primary" autoFocus onClick={() => { setPending(null); send(cur.tid); }}>Send now</button>
+            {pending.ms > 0 && <span className="cs-bar" style={{ width: Math.max(0, Math.min(100, (left / pending.ms) * 100)) + '%' }} />}
+          </div>; })()}
         <div className="split-v" ref={box}>
           <div className="col" style={{ height: split + '%', minHeight: 0 }}>
-            <Editor key={cur.tid} tab={cur} set={setReq} onSend={() => send()} onCancel={() => ctrls.current[cur.tid]?.abort()} onSave={() => doSave()} running={cur.running} vars={vars}
+            <Editor key={cur.tid} tab={cur} set={setReq} onSend={() => trySend()} onCancel={() => ctrls.current[cur.tid]?.abort()} onSave={() => doSave()} running={cur.running} vars={vars}
               onSwitchOp={switchOp} onLoadOps={loadOps} onCode={() => { setModal({ type: 'code', prepared: prepare(cur.req, vars) }); }} />
           </div>
           <div className="resizer" onMouseDown={drag} role="separator" aria-orientation="horizontal" />
           <div className="col" style={{ height: (100 - split) + '%', minHeight: 0 }}><Response tab={cur} onClear={() => patch(cur.tid, { resp: null, error: null, tests: [], logs: [] })} onExample={(r) => { const ex = { name: `${r.status} ${r.statusText || ''}`.trim(), status: r.status, headers: r.headers.filter(([k]) => !/^(set-cookie|content-length|content-encoding|transfer-encoding|connection|date|server)$/i.test(k)).map(([key, value]) => ({ key, value, enabled: true })), body: (r.bodyText || '').slice(0, 200000) }; setReq({ examples: [...(cur.req.examples || []).filter(e => e.name !== ex.name), ex] }); toast(cur.src ? `Example saved — press Save to keep it` : 'Example added — Save the request to keep it', 'success'); }} /></div>
-        </div>)}
+        </div></>)}
       </div>
+      <VarHover active={!!active && !isEnvTab && cur.kind !== 'none'} lookup={lookupVar} save={saveVar} hasEnv={!!env} envName={env?.name} />
       {dlg.el}
       <Suspense fallback={null}>
         {modal?.type === 'import' && <ImportModal onClose={() => setModal(null)} onApply={applyImport} />}
@@ -234,7 +287,7 @@ export default function ApiTester({ active }) {
             const t = tabs.find(x => x.tid === modal.id); const req = { ...t.req, name };
             if (cid === '__new') { cid = uid(); coll.save({ id: cid, name: newName || 'My Collection', items: [req] }, { immediate: true }); }
             else updateColl(cid, items => [...items, req]);
-            patch(modal.id, { req, src: { cid, rid: req.id }, dirty: false }); setModal(null); toast('Saved', 'success');
+            rememberEnv(cid, activeEnvId); patch(modal.id, { req, src: { cid, rid: req.id }, dirty: false }); setModal(null); toast('Saved', 'success');
           }} />}
         {runColl && <RunnerModal collection={runColl} env={env} globals={globals} onClose={() => setModal(null)}
           onEnvChanged={(e, g) => syncScope(envToVars(env), e, g)} />}

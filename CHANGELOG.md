@@ -9,7 +9,11 @@ Early public release: expect rough edges and breaking changes before 0.1.
 - **Desktop app (Electron)** with a hardened window (sandboxed page, no Node, outside network blocked, per-launch token between window and engine, loopback Host check), optional idle auto sign-out, installers for Linux (deb, AppImage), macOS (dmg) and Windows (installer, portable). The earlier browser-window bundles remain as "lite".
 - SFTP sign-in with the SSH agent, or password + one-time code (keyboard-interactive / 2FA), besides password and private key.
 - API Tester: JWT (HMAC), Digest and AWS Signature v4 auth; OAuth 2 password and refresh-token grants; a short description for each auth type.
-- Interface: key-value rows no longer leave a stray ticked row and every row can be removed; coloured method picker; red status chips for 4xx/5xx; Clear button on responses; draggable tabs; collapse-all in the sidebar; tabbed Settings; themed dropdowns; refreshed light theme; the sample ERP environment is selected automatically.
+- Side panels (Requests, Mocks, SFTP): drag the divider to resize, double-click it or use the hide button / Ctrl+B to collapse; the panel follows the active tab (environment tab → Environments, request tab → its place in Collections).
+- Ask before sending when an environment is active: Cancel / Send now bar that sends by itself after N seconds (Settings → Requests & history; 0 = wait). Each collection remembers its environment; the picker only appears once an environment exists.
+- Hover a `{{variable}}` in the request editor to see, edit or define its value.
+- Mock from sample: window can be expanded, search in the preview, side-by-side compare with your sample, XML `type`/`version` attributes and values listed under "Keep" are preserved.
+- Interface: arrow cursor on buttons/tabs/rows and clearer hover; key-value rows no longer leave a stray ticked row and every row can be removed; coloured method picker; red status chips for 4xx/5xx; Clear button on responses; draggable tabs; collapse-all in the sidebar; tabbed Settings; themed dropdowns; refreshed light theme; the sample ERP environment is selected automatically.
 - Sign-in with local username and password; secrets encrypted at rest (AES-256-GCM).
 - Desktop app mode (own window, free local port, stops on close); `.deb` with bundled Node.js (amd64/arm64) and tarball installer.
 - Portable bundles with their own Node.js and per-user installers for Linux (x64/arm64), macOS (arm64/x64) and Windows (x64). macOS and Windows are untested pre-release builds and are not code-signed.

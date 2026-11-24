@@ -9,7 +9,7 @@ const P = {
   file: 'M6 3h8l4 4v14H6zM14 3v4h4',
   up: 'M12 19V5M5 12l7-7 7 7',
   down: 'M12 5v14M5 12l7 7 7-7',
-  collapse: 'M7 9l5-5 5 5M7 15l5 5 5-5',
+  collapse: 'M7 9l5-5 5 5M7 15l5 5 5-5', panel: 'M3 5h18v14H3zM9 5v14', expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', shrink: 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5', search: 'M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-5-5', chevl: 'M15 6l-6 6 6 6',
   plus: 'M12 5v14M5 12h14', x: 'M6 6l12 12M18 6L6 18',
   refresh: 'M20 11a8 8 0 10-2.3 5.7M20 4v7h-7',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
@@ -46,12 +46,13 @@ export function ToastProvider({ children }) {
   return <ToastCtx.Provider value={push}>{children}<div className="toasts">{list.map(t => <div key={t.id} className={'toast ' + t.kind}>{t.msg}</div>)}</div></ToastCtx.Provider>;
 }
 
-export function Modal({ title, onClose, children, footer, wide }) {
+export function Modal({ title, onClose, children, footer, wide, expandable }) {
+  const [full, setFull] = useState(false);
   useEffect(() => { const h = (e) => e.key === 'Escape' && onClose(); addEventListener('keydown', h); return () => removeEventListener('keydown', h); }, [onClose]);
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="modal-h"><span className="grow">{title}</span><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon n="x" /></button></div>
+      <div className={'modal' + (wide ? ' wide' : '') + (full ? ' full' : '')} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modal-h"><span className="grow">{title}</span>{expandable && <button className="icon-btn" onClick={() => setFull(!full)} aria-label={full ? 'Shrink window' : 'Expand window'} title={full ? 'Shrink window' : 'Expand window'}><Icon n={full ? 'shrink' : 'expand'} /></button>}<button className="icon-btn" onClick={onClose} aria-label="Close"><Icon n="x" /></button></div>
         <div className="modal-b">{children}</div>
         {footer && <div className="modal-f">{footer}</div>}
       </div>
@@ -128,6 +129,34 @@ export function useDebounced(value, ms = 200) {
   useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
   return v;
 }
+
+/* Side panel that can be dragged to any width (240-700 px), hidden with Ctrl+B and remembered between sessions. */
+export function useSidePanel(key, def = 290, active = true) {
+  const kw = 'dh.sideW.' + key, kc = 'dh.sideC.' + key;
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
+  const [w, setW] = useState(() => { let n = 0; try { n = Number(localStorage.getItem(kw)); } catch { /* */ } return n >= 240 && n <= 700 ? n : def; });
+  const [c, setC] = useState(() => { let v = null; try { v = localStorage.getItem(kc); } catch { /* */ } return v === null ? innerWidth < 780 : v === '1'; });
+  const toggle = useCallback(() => setC(x => { save(kc, x ? '0' : '1'); return !x; }), [kc]);
+  useEffect(() => {
+    if (!active) return;
+    const h = (e) => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggle(); } };
+    addEventListener('keydown', h); return () => removeEventListener('keydown', h);
+  }, [active, toggle]);
+  const clamp = (n) => Math.round(Math.min(Math.max(240, n), Math.min(700, innerWidth * 0.7)));
+  const startDrag = (e) => {
+    e.preventDefault(); const x0 = e.clientX, w0 = w; let last = w; document.body.classList.add('resizing-x');
+    const mv = (ev) => { last = clamp(w0 + ev.clientX - x0); setW(last); };
+    const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); document.body.classList.remove('resizing-x'); save(kw, String(last)); };
+    addEventListener('mousemove', mv); addEventListener('mouseup', up);
+  };
+  const onKey = (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const n = clamp(w + (e.key === 'ArrowRight' ? 16 : -16)); setW(n); save(kw, String(n)); }
+    else if (e.key === 'Enter') toggle();
+  };
+  return { w, collapsed: c, toggle, startDrag, onKey };
+}
+export const SideResizer = ({ p }) => <div className="side-resizer" onMouseDown={p.startDrag} onDoubleClick={p.toggle} onKeyDown={p.onKey} tabIndex={0} role="separator" aria-orientation="vertical" aria-label="Resize side panel" title="Drag to resize · double-click to hide" />;
+export const SideRestore = ({ p }) => <div className="side-collapsed"><button className="icon-btn" onClick={p.toggle} title="Show side panel (Ctrl+B)" aria-label="Show side panel"><Icon n="panel" /></button></div>;
 
 export const Spinner = () => <span className="spin" role="status" aria-label="Loading" />;
 export const ModuleLoading = () => <div className="empty"><div className="col" style={{ gap: 10, alignItems: 'center' }}><Spinner /><span>Loading module…</span></div></div>;

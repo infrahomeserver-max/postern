@@ -75,3 +75,10 @@ test('dates stay valid', () => {
     assert.equal(o.length, d.length);
   }
 });
+
+test('XML type/version attributes are kept; "keep" also matches exact values', () => {
+  const x = '<a xmlns:wd="u"><wd:ID wd:type="Currency_ID" wd:version="v41.0">USD</wd:ID><wd:ID wd:type="WID">1234567890abcdef</wd:ID></a>';
+  const r = anonymize(x, { keep: ['usd', 'wid'] });
+  assert.match(r.output, /wd:type="Currency_ID"/); assert.match(r.output, /wd:version="v41\.0"/); assert.match(r.output, />USD</);
+  assert.match(r.output, /wd:type="WID"/); assert.doesNotMatch(r.output, /1234567890abcdef/);
+});

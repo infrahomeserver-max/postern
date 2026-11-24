@@ -113,6 +113,12 @@ function RequestPrefs() {
   const [u, set] = useUi(); const hist = useDocs('history'); const toast = useToast();
   return (
     <div className="col" style={{ gap: 12, maxWidth: 600 }}>
+      <div className="col" style={{ gap: 6 }}>
+        <Toggle label="Ask before sending when an environment is active" hint="(a Cancel / Send now bar appears above the request)" checked={u.confirmSend} onChange={(confirmSend) => set({ confirmSend })} />
+        <label className="row" style={{ gap: 8, marginLeft: 26, opacity: u.confirmSend ? 1 : .5 }}>Send automatically after
+          <input type="number" min="0" max="60" step="1" value={u.confirmSendSecs} disabled={!u.confirmSend} onChange={(e) => set({ confirmSendSecs: Math.max(0, Math.min(60, Math.floor(+e.target.value || 0))) })} style={{ width: 64 }} aria-label="Seconds before the request is sent automatically" />
+          seconds <span className="muted">(0 = wait until I confirm)</span></label>
+      </div>
       <Toggle label="Warn before closing a tab with unsaved changes" checked={u.confirmClose} onChange={(confirmClose) => set({ confirmClose })} />
       <Toggle label="Wrap long lines in responses" hint="(JSON, XML and text bodies)" checked={u.wrapLines} onChange={(wrapLines) => set({ wrapLines })} />
       <Toggle label="Keep request history" hint="(every sent request is listed under History)" checked={u.keepHistory} onChange={(keepHistory) => set({ keepHistory })} />

@@ -1,3 +1,4 @@
+import { useSidePanel, SideResizer, SideRestore } from '../../ui.jsx';
 import { useState, useEffect, useCallback } from 'react';
 import { api, uid, download, pickFile } from '../../api.js';
 import { Icon, Modal, useToast, Spinner } from '../../ui.jsx';
@@ -64,7 +65,7 @@ function SiteEditor({ site, isNew, reload, onConnect, onDeleted, busy }) {
   );
 }
 
-function SitesSidebar({ sites, editing, setEditing, connect, busy, reload, onNew, quick, setQuick, saveQuick, setSaveQuick, sessions }) {
+function SitesSidebar({ panel, sites, editing, setEditing, connect, busy, reload, onNew, quick, setQuick, saveQuick, setSaveQuick, sessions }) {
   const toast = useToast();
   const importFile = async () => {
     const f = await pickFile('.xml,.json'); if (!f) return;
@@ -78,9 +79,11 @@ function SitesSidebar({ sites, editing, setEditing, connect, busy, reload, onNew
   const exportSites = () => download('devhub-sites.json', JSON.stringify({ devhub: 'sites', note: 'Passwords and keys are not exported', sites: sites.map(strip) }, null, 2));
   const grouped = (sites || []).reduce((m, s) => ((m[s.folder || ''] ||= []).push(s), m), {});
   const live = new Set(sessions.map(s => s.siteId));
-  return (
-    <aside className="side" aria-label="Sites" style={{ width: 270 }}>
+  if (panel.collapsed) return <SideRestore p={panel} />;
+  return (<>
+    <aside className="side" aria-label="Sites" style={{ width: panel.w }}>
       <div className="row" style={{ padding: 10 }}><b className="grow">Site Manager</b>
+        <button className="icon-btn" title="Hide side panel (Ctrl+B)" aria-label="Hide side panel" onClick={panel.toggle}><Icon n="panel" /></button>
         <button className="icon-btn" title="Import (FileZilla XML / JSON)" onClick={importFile}><Icon n="upload" /></button>
         <button className="icon-btn" title="Export sites (no secrets)" onClick={exportSites} disabled={!sites?.length}><Icon n="download" /></button>
         <button className="btn sm" onClick={onNew}><Icon n="plus" s={12} />New</button></div>
@@ -102,11 +105,12 @@ function SitesSidebar({ sites, editing, setEditing, connect, busy, reload, onNew
         <button className="btn primary" style={{ justifyContent: 'center' }} disabled={busy || !quick.host || !quick.username}>{busy ? <Spinner /> : 'Connect'}</button>
       </form>
     </aside>
-  );
+    <SideResizer p={panel} />
+  </>);
 }
 
 export default function Sftp({ active }) {
-  const toast = useToast(); const dlg = useDialogs();
+  const toast = useToast(); const dlg = useDialogs(); const panel = useSidePanel('sftp', 270, active);
   const [sites, setSites] = useState(null); const [cfg, setCfg] = useState({ localEnabled: false });
   const [sessions, setSessions] = useState([]); const [cur, setCur] = useState(null);
   const [editing, setEditing] = useState(null); const [fresh, setFresh] = useState(null); const [busy, setBusy] = useState(false);
@@ -148,7 +152,7 @@ export default function Sftp({ active }) {
 
   return (
     <>
-      <SitesSidebar sites={sites} editing={fresh?.id || editing} setEditing={pickSite} connect={(id, a) => { setCur(null); return connect(id, a); }} busy={busy} reload={reload} sessions={sessions}
+      <SitesSidebar panel={panel} sites={sites} editing={fresh?.id || editing} setEditing={pickSite} connect={(id, a) => { setCur(null); return connect(id, a); }} busy={busy} reload={reload} sessions={sessions}
         onNew={() => { const d = blank(); setFresh(d); setEditing(null); setCur(null); }} quick={quick} setQuick={setQuick} saveQuick={saveQuick} setSaveQuick={setSaveQuick} />
       <div className="col grow" style={{ minWidth: 0 }}>
         {sessions.length > 0 && (

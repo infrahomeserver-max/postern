@@ -29,7 +29,7 @@ export default function Samples() {
       withAuth(soap.items);
       const env = envFromPostman(await get(`${ROOT}/postman/environment.json`));
       await cols.save(rest, { immediate: true }); await cols.save(soap, { immediate: true }); await envs.save(env, { immediate: true }); docsChanged('collection'); docsChanged('environment');
-      try { localStorage.setItem('dh.env', env.id); } catch { /* private mode */ } dispatchEvent(new CustomEvent('postern:env-chosen', { detail: env.id })); // pick it so {{baseUrl}} etc. resolve straight away
+      try { localStorage.setItem('dh.env', env.id); const m = JSON.parse(localStorage.getItem('dh.envByColl') || '{}'); m[rest.id] = env.id; m[soap.id] = env.id; localStorage.setItem('dh.envByColl', JSON.stringify(m)); } catch { /* private mode */ } dispatchEvent(new CustomEvent('postern:env-chosen', { detail: env.id })); // pick it so {{baseUrl}} etc. resolve straight away
       toast('Added 2 collections and an environment. The environment is already selected: run “Get token”, then any request.', 'success');
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };

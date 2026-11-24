@@ -90,13 +90,15 @@ const numToStr = (n) => (Math.abs(n) < 1e21 ? String(n) : n.toFixed(0));
 function walkJson(v, f, ctx, key = '') {
   if (Array.isArray(v)) return v.slice(0, ctx.maxItems).map(x => walkJson(x, f, ctx, key));
   if (v && typeof v === 'object') { const o = {}; for (const [k, x] of Object.entries(v)) o[k] = walkJson(x, f, ctx, k); return o; }
-  if (typeof v === 'string') { if (ctx.keep.has(key.toLowerCase())) return v; collect(ctx, v); return f.str(v, key); }
-  if (typeof v === 'number') { if (ctx.keep.has(key.toLowerCase())) return v; collect(ctx, String(v)); return f.num(v); }
+  if (typeof v === 'string') { if (ctx.keep.has(key.toLowerCase()) || ctx.keep.has(v.toLowerCase())) return v; collect(ctx, v); return f.str(v, key); }
+  if (typeof v === 'number') { if (ctx.keep.has(key.toLowerCase()) || ctx.keep.has(String(v))) return v; collect(ctx, String(v)); return f.num(v); }
   return v; // boolean / null
 }
 const collect = (ctx, s) => { if (s.length >= 4 && /[^\s]/.test(s)) ctx.originals.add(s); };
 
 /* ---------- XML (tokenizer — no DOM, no entity expansion) ---------- */
+// XML attributes that describe the data rather than hold it (wd:type="WID", wd:version="v41.0", xml:lang ...): kept so the mock still validates
+const STRUCT_ATTRS = new Set(['type', 'version', 'lang', 'encoding', 'format', 'kind', 'schemaversion', 'schemalocation']);
 const unesc = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escAttr = (s) => esc(s).replace(/"/g, '&quot;');
@@ -126,7 +128,8 @@ function walkXml(src, f, ctx) {
       const val = dv ?? sv;
       if (/^xmlns(:|$)/.test(an) || /^xsi:/.test(an) || an === 'xml:lang') return all;
       const plain = unesc(val);
-      if (ctx.keep.has(an.replace(/^.*:/, '').toLowerCase())) return all;
+      const local = an.replace(/^.*:/, '').toLowerCase();
+      if (ctx.keep.has(local) || ctx.keep.has(plain.toLowerCase()) || STRUCT_ATTRS.has(local)) return all;
       collect(ctx, plain);
       return `${an}="${escAttr(f.str(plain, an))}"`;
     });
@@ -139,7 +142,7 @@ function anonText(t, tag, f, ctx, raw = false) {
   if (!t.trim()) return t;
   const lead = t.match(/^\s*/)[0], trail = t.match(/\s*$/)[0]; const core = t.slice(lead.length, t.length - trail.length);
   const plain = raw ? core : unesc(core);
-  if (ctx.keep.has(tag.toLowerCase())) return t;
+  if (ctx.keep.has(tag.toLowerCase()) || ctx.keep.has(plain.toLowerCase())) return t;
   collect(ctx, plain);
   const v = /^-?\d+(\.\d+)?$/.test(plain) ? String(f.num(plain)) : f.str(plain, tag);
   return lead + (raw ? v : esc(v)) + trail;

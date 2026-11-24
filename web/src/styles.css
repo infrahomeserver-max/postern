@@ -187,3 +187,40 @@ select:disabled { opacity: .55; cursor: not-allowed; }
 [data-density="compact"] .tab { padding: 4px 10px; } [data-density="compact"] .tree-item { padding: 2px 8px; } [data-density="compact"] .kv td input { padding-top: 3px; padding-bottom: 3px; } [data-density="compact"] .btn { padding-top: 3px; padding-bottom: 3px; }
 [data-wrap="1"] pre.code { white-space: pre-wrap; overflow-wrap: anywhere; }
 [data-motion="reduce"] *, [data-motion="reduce"] *::before, [data-motion="reduce"] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+
+/* ---- resizable / hideable side panel ---- */
+.side { container-type: inline-size; }
+.side-resizer { width: 5px; margin-left: -3px; margin-right: -2px; flex: none; cursor: col-resize; position: relative; z-index: 6; background: transparent; transition: background .12s; }
+.side-resizer:hover, .side-resizer:focus-visible, body.resizing-x .side-resizer { background: color-mix(in srgb, var(--accent) 55%, transparent); outline: none; }
+body.resizing-x { cursor: col-resize !important; user-select: none; } body.resizing-x * { cursor: col-resize !important; }
+.side-collapsed { width: 34px; flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 8px; }
+.side .tabs .tab { min-width: 0; overflow: hidden; white-space: nowrap; } .side .tabs .tab .tl { overflow: hidden; text-overflow: ellipsis; }
+@container (max-width: 275px) { .side .tabs .tab .tl { display: none; } }
+.side .grow.row input { min-width: 0; }
+
+/* ---- confirm-before-send bar ---- */
+.confirm-send { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: color-mix(in srgb, var(--accent) 14%, var(--panel)); border-bottom: 1px solid var(--line); overflow: hidden; flex: none; }
+.confirm-send.warn { background: color-mix(in srgb, var(--err, #f87171) 18%, var(--panel)); }
+.confirm-send .cs-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); transition: width .1s linear; } .confirm-send.warn .cs-bar { background: var(--err, #f87171); }
+
+/* ---- variable hover popover ---- */
+.var-pop { position: fixed; z-index: 90; width: 320px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 12px; }
+
+/* ---- pointer: arrow on buttons, tabs and rows like a desktop app; the hand is only for real links ---- */
+button, [role="button"], [role="tab"], .btn, .icon-btn, .tab, .tree-item, .chip, select, summary, label, .set-item, .seg button, [style*="cursor: pointer"], [style*="cursor:pointer"] { cursor: default !important; }
+button:disabled, .btn:disabled, select:disabled { cursor: not-allowed !important; }
+a[href], a[href] * { cursor: pointer !important; }
+.side-resizer, .side-resizer * { cursor: col-resize !important; } .resizer, .resizer * { cursor: row-resize !important; }
+/* hover that you can actually see */
+.tree-item:hover, .tab:not(.active):hover, .set-item:hover, .icon-btn:hover { background: color-mix(in srgb, var(--text) 11%, transparent) !important; }
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: color-mix(in srgb, var(--text) 10%, var(--panel2)); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- expandable modal + mock preview / compare ---- */
+.modal.full { width: 98vw; height: 94vh; max-height: 94vh; } .modal.full .modal-b { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.modal.full .preview { flex: 1; min-height: 0; display: flex; flex-direction: column; } .modal.full .cmp { flex: 1; max-height: none !important; }
+.modal.full textarea[aria-label="Sample response"] { height: 40vh !important; }
+.cmp { display: flex; gap: 8px; max-height: 52vh; min-height: 200px; } .cmp .cmp-pane { flex: 1; min-width: 0; margin: 0; overflow: auto; max-height: inherit; }
+.cmp.two .cmp-pane { width: 50%; } .cmp-line { display: flex; gap: 10px; white-space: pre; padding: 0 6px; } .cmp-line .ln { color: var(--muted); opacity: .55; min-width: 3ch; text-align: right; user-select: none; flex: none; }
+.cmp-line.chg { background: color-mix(in srgb, var(--accent) 13%, transparent); } .cmp-line.cur { outline: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.cmp mark { background: #f5c451; color: #111; border-radius: 2px; }

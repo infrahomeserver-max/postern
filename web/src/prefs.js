@@ -1,7 +1,7 @@
 /* Interface preferences (per browser/profile): zoom, density, confirm-on-close, history, wrapping. */
 import { useState, useEffect } from 'react';
 const KEY = 'dh.ui';
-export const UI_DEFAULTS = { zoom: 100, density: 'comfortable', confirmClose: true, keepHistory: true, wrapLines: false, reduceMotion: false };
+export const UI_DEFAULTS = { zoom: 100, density: 'comfortable', confirmClose: true, keepHistory: true, confirmSend: true, confirmSendSecs: 3, wrapLines: false, reduceMotion: false };
 export const loadUi = () => { try { return { ...UI_DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...UI_DEFAULTS }; } };
 export function applyUi(p = loadUi()) {
   const r = document.documentElement;

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSidePanel, SideResizer, SideRestore } from '../../ui.jsx';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { api, useDocs, fmtBytes } from '../../api.js';
 import { Icon, Modal, useToast, Spinner } from '../../ui.jsx';
 import { pickFile } from '../../api.js';
@@ -116,13 +117,42 @@ function FromWsdl({ onClose, onCreate }) {
 }
 
 
+/* Preview: generated mock next to the original sample, with search and changed-line marks */
+const normLines = (t, xml) => (xml ? t.replace(/<!--[\s\S]*?-->/g, '') : t).split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
+function Preview({ res, original }) {
+  const [mode, setMode] = useState('mock'); const [q, setQ] = useState(''); const [at, setAt] = useState(0);
+  const xml = res.kind === 'xml';
+  const mock = useMemo(() => normLines(res.output, xml), [res]);
+  const orig = useMemo(() => { let t = original; if (res.kind === 'json') { try { t = JSON.stringify(JSON.parse(original), null, 2); } catch { /* raw */ } } return normLines(t, xml); }, [original, res]);
+  const aligned = mock.length === orig.length;
+  const needle = q.trim().toLowerCase();
+  const hits = useMemo(() => { if (!needle) return []; const h = []; [['m', mock], ['o', orig]].forEach(([side, ls]) => { if (side === 'o' && mode === 'mock') return; ls.forEach((l, i) => { if (l.toLowerCase().includes(needle)) h.push(side + i); }); }); return h; }, [needle, mock, orig, mode]);
+  useEffect(() => { setAt(0); }, [needle, mode]);
+  const cur = hits[at]; const box = useRef();
+  useEffect(() => { if (cur) box.current?.querySelector('[data-hit="' + cur + '"]')?.scrollIntoView({ block: 'center' }); }, [cur, mode]);
+  const mark = (line) => { if (!needle) return line; const out = []; let i = 0; const lo = line.toLowerCase(); for (;;) { const j = lo.indexOf(needle, i); if (j < 0) break; out.push(line.slice(i, j), <mark key={j}>{line.slice(j, j + needle.length)}</mark>); i = j + needle.length; } out.push(line.slice(i)); return out; };
+  const pane = (side, ls, other) => <pre className="code cmp-pane" onScroll={mode === 'cmp' ? (e) => { const o = box.current?.querySelectorAll('.cmp-pane')[side === 'm' ? 1 : 0]; if (o && Math.abs(o.scrollTop - e.target.scrollTop) > 1) { o.scrollTop = e.target.scrollTop; o.scrollLeft = e.target.scrollLeft; } } : undefined}>
+    {ls.map((l, i) => <div key={i} data-hit={side + i} className={'cmp-line' + (aligned && l !== other[i] ? ' chg' : '') + (cur === side + i ? ' cur' : '')}><span className="ln">{i + 1}</span><span>{mark(l) || ' '}</span></div>)}</pre>;
+  return <div className="preview">
+    {res.leaks.length ? <div className="chip err" style={{ display: 'block', whiteSpace: 'normal', marginBottom: 8 }}>{res.leaks.length} original value(s) still appear in the output — not safe to use: {res.leaks.slice(0, 5).map(l => l.slice(0, 20)).join(', ')}. Report this.</div>
+      : <div className="chip ok" style={{ display: 'block', whiteSpace: 'normal', marginBottom: 8 }}>Leak check passed: none of the {res.stats.checked} original values appear in the output{res.stats.kept.length ? ` (kept on purpose: ${res.stats.kept.join(', ')})` : ''}.</div>}
+    <div className="row" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
+      <div className="seg" role="tablist"><button role="tab" aria-selected={mode === 'mock'} className={mode === 'mock' ? 'on' : ''} onClick={() => setMode('mock')}>Mock</button><button role="tab" aria-selected={mode === 'cmp'} className={mode === 'cmp' ? 'on' : ''} onClick={() => setMode('cmp')}>Compare with sample</button></div>
+      <div className="grow row" style={{ position: 'relative', minWidth: 160 }}><Icon n="search" s={14} /><input className="grow" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && hits.length) setAt((at + (e.shiftKey ? hits.length - 1 : 1)) % hits.length); }} placeholder="Search in the preview…" aria-label="Search preview" spellCheck={false} /></div>
+      {needle && <><span className="muted" style={{ fontSize: 12 }}>{hits.length ? `${at + 1} / ${hits.length}` : 'no match'}</span><button className="btn sm" disabled={!hits.length} onClick={() => setAt((at + hits.length - 1) % hits.length)} aria-label="Previous match">↑</button><button className="btn sm" disabled={!hits.length} onClick={() => setAt((at + 1) % hits.length)} aria-label="Next match">↓</button></>}
+    </div>
+    <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>{mode === 'cmp' ? (aligned ? 'Highlighted lines differ from your sample; plain lines were kept as they are (structure, names, type/version codes).' : 'Lists were shortened, so lines are not matched one-to-one.') + ' Left: your sample (stays on this screen, never saved). Right: the mock.' : <>Field and tag <b>names</b> are kept as structure. If a name itself is confidential, rename it after creating.</>}</div>
+    <div ref={box} className={mode === 'cmp' ? 'cmp two' : 'cmp'}>{mode === 'cmp' && pane('o', orig, mock)}{pane('m', mock, orig)}</div>
+  </div>;
+}
+
 function FromSample({ onClose, onCreate, hasMock }) {
   const [text, setText] = useState(''); const [keep, setKeep] = useState(''); const [items, setItems] = useState(3);
   const [method, setMethod] = useState('GET'); const [path, setPath] = useState('/records'); const [status, setStatus] = useState(200); const [target, setTarget] = useState(hasMock ? 'add' : 'new');
   const [res, setRes] = useState(null); const [err, setErr] = useState('');
   const run = () => { setErr(''); try { setRes(anonymize(text, { keep: keep.split(/[,\s]+/), maxItems: items })); } catch (e) { setRes(null); setErr(e.message); } };
   return (
-    <Modal title="Generate a mock response from a sample" onClose={onClose} footer={res
+    <Modal title="Generate a mock response from a sample" onClose={onClose} expandable wide={!!res} footer={res
       ? <><button className="btn" onClick={() => setRes(null)}>Back</button><button className="btn primary" disabled={res.leaks.length > 0} onClick={() => onCreate({ method, path, status, body: res.output, kind: res.kind, target })}>{target === 'add' ? 'Add route to this mock' : 'Create mock'}</button></>
       : <button className="btn" onClick={onClose}>Cancel</button>}>
       {!res ? <>
@@ -130,19 +160,17 @@ function FromSample({ onClose, onCreate, hasMock }) {
         <div className="row" style={{ marginBottom: 8 }}><button className="btn sm" onClick={async () => { const f = await pickFile('.json,.xml,.txt'); if (f) setText(await f.text()); }}>Choose a file…</button><span className="muted">or paste below</span></div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ width: '100%', height: 150 }} spellCheck={false} placeholder='{ "employees": [ { "id": "E-1001", "name": "…" } ] }   or   <Response>…</Response>' aria-label="Sample response" />
         <div className="row" style={{ margin: '8px 0', flexWrap: 'wrap' }}>
-          <label className="row"><span className="muted">Keep list items</span><input type="number" min="1" max="1000" value={items} onChange={(e) => setItems(+e.target.value)} style={{ width: 64 }} /></label>
-          <label className="row grow"><span className="muted">Keep these values as-is</span><input className="grow" value={keep} onChange={(e) => setKeep(e.target.value)} placeholder="field names, e.g. status, currency, type" spellCheck={false} /></label></div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>“Keep” is for harmless codes (status, currency). Leave it empty if unsure.</div>
-        <div className="row" style={{ flexWrap: 'wrap' }}><span className="muted">Route</span><select value={method} onChange={(e) => setMethod(e.target.value)} style={{ width: 96 }} aria-label="Method">{METHODS.map(m => <option key={m}>{m}</option>)}</select>
-          <input className="grow mono" value={path} onChange={(e) => setPath(e.target.value)} aria-label="Route path" /><input type="number" value={status} onChange={(e) => setStatus(+e.target.value)} style={{ width: 70 }} aria-label="Status" /></div>
+          <label className="row"><span className="muted" title="If the sample has a list with more entries, only this many are kept in the mock">Max items per list</span><input type="number" min="1" max="1000" value={items} onChange={(e) => setItems(+e.target.value)} style={{ width: 64 }} aria-label="Max items per list" /></label>
+          <label className="row grow"><span className="muted">Keep these values as-is</span><input className="grow" value={keep} onChange={(e) => setKeep(e.target.value)} placeholder="field names or exact values, e.g. status, USD, WID" spellCheck={false} /></label></div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>“Keep” is for harmless codes (status, currency): type a field name or an exact value, separated by commas. XML attributes like <code>type</code> and <code>version</code> are always kept. Leave it empty if unsure.</div>
+        <div className="row" style={{ flexWrap: 'wrap' }}><span className="muted" title="The mock answers this method + path">Route</span><select value={method} onChange={(e) => setMethod(e.target.value)} style={{ width: 96 }} aria-label="Method">{METHODS.map(m => <option key={m}>{m}</option>)}</select>
+          <input className="grow mono" value={path} onChange={(e) => setPath(e.target.value)} aria-label="Route path" /><input type="number" value={status} onChange={(e) => setStatus(+e.target.value)} style={{ width: 70 }} aria-label="Status" title="HTTP status the mock returns (200 = OK, 201 = created, 404 = not found, 500 = server error)" /></div>
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>The route is what a client calls (method + path); the number on the right is the HTTP status the mock replies with (200 = OK).</div>
         {hasMock && <div className="row" style={{ marginTop: 8 }}><label className="row"><input type="radio" checked={target === 'add'} onChange={() => setTarget('add')} />Add to the open mock</label><label className="row"><input type="radio" checked={target === 'new'} onChange={() => setTarget('new')} />New mock</label></div>}
         {err && <div className="err-text" role="alert" style={{ marginTop: 8 }}>{err}</div>}
         <button className="btn primary" style={{ marginTop: 10 }} disabled={!text.trim()} onClick={run}>Generate preview</button></>
       : <>
-        {res.leaks.length ? <div className="chip err" style={{ display: 'block', whiteSpace: 'normal', marginBottom: 8 }}>{res.leaks.length} original value(s) still appear in the output — not safe to use: {res.leaks.slice(0, 5).map(l => l.slice(0, 20)).join(', ')}. Report this.</div>
-          : <div className="chip ok" style={{ display: 'block', whiteSpace: 'normal', marginBottom: 8 }}>Leak check passed: none of the {res.stats.checked} original values appear in the output{res.stats.kept.length ? ` (kept on purpose: ${res.stats.kept.join(', ')})` : ''}.</div>}
-        <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Field and tag <b>names</b> are kept as structure. If a name itself is confidential, rename it after creating.</div>
-        <pre className="code" style={{ maxHeight: 280, overflow: 'auto', margin: 0 }}>{res.output}</pre></>}
+        <Preview res={res} original={text} /></>}
     </Modal>
   );
 }
@@ -161,6 +189,7 @@ function FromCollection({ onClose, onCreate }) {
 export default function MockModule({ active }) {
   const mocks = useDocs('mock'); const toast = useToast(); const dlg = useDialogs();
   const [sel, setSel] = useState(null); const [rsel, setRsel] = useState(null); const [pick, setPick] = useState(false); const [smp, setSmp] = useState(false); const [wsdl, setWsdl] = useState(false);
+  const panel = useSidePanel('mock', 270, active);
   const mock = mocks.items?.find(m => m.id === sel) || null;
   useEffect(() => { if (!sel && mocks.items?.length) setSel(mocks.items[0].id); }, [mocks.items, sel]);
   useEffect(() => { setRsel(mock?.routes?.[0]?.id || null); }, [sel]); // eslint-disable-line
@@ -176,8 +205,9 @@ export default function MockModule({ active }) {
 
   return (
     <>
-      <aside className="side" style={{ width: 270 }}>
+      {panel.collapsed ? <SideRestore p={panel} /> : <><aside className="side" style={{ width: panel.w }}>
         <div className="row" style={{ padding: 10 }}><b className="grow">Mock servers</b>
+          <button className="icon-btn" title="Hide side panel (Ctrl+B)" aria-label="Hide side panel" onClick={panel.toggle}><Icon n="panel" /></button>
           <button className="btn sm" onClick={async () => { const n = await dlg.prompt('New mock server', 'My API mock'); if (n) create(n); }}><Icon n="plus" s={12} />New</button></div>
         <div className="col" style={{ overflow: 'auto', padding: 6, flex: 1 }}>
           {mocks.items === null ? <div className="skeleton" style={{ height: 40, margin: 4 }} /> : mocks.items.map(m => (
@@ -190,7 +220,7 @@ export default function MockModule({ active }) {
         <div style={{ padding: 10, borderTop: '1px solid var(--line)' }}><div className="col" style={{ gap: 6 }}><button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setPick(true)}><Icon n="box" s={13} />From a collection…</button>
           <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setWsdl(true)}><Icon n="code" s={13} />From a WSDL (SOAP)…</button>
           <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setSmp(true)} title="Fake data with the structure of a real JSON/XML response"><Icon n="shield" s={13} />From a sample (anonymised)…</button></div></div>
-      </aside>
+      </aside><SideResizer p={panel} /></>}
 
       {sel === '__samples' ? <Samples /> : !mock ? <div className="empty grow"><div><Icon n="server" s={34} c="var(--muted)" /><h3>Mock servers</h3><p className="muted" style={{ maxWidth: 420 }}>Create a mock to get a public URL that answers with the responses you define — with path parameters, templating, delays and a live request log.</p>
         <button className="btn primary" onClick={() => setPick(true)}>Create from a collection</button> <button className="btn" onClick={async () => { const n = await dlg.prompt('New mock server', 'My API mock'); if (n) create(n); }}>Blank mock</button></div></div> : (
