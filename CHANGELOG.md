@@ -10,6 +10,10 @@ Early public release: expect rough edges and breaking changes before 0.1.
 - SFTP sign-in with the SSH agent, or password + one-time code (keyboard-interactive / 2FA), besides password and private key.
 - API Tester: JWT (HMAC), Digest and AWS Signature v4 auth; OAuth 2 password and refresh-token grants; a short description for each auth type.
 - One-line Linux installer attached to every release: `curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/download/install.sh | bash` (verifies the checksum; `--purge` for a clean install).
+- Desktop menu bar rebuilt along the lines of Postman/VS Code: File (new/close tab, Settings, Sign out), View (Requests/Transfer/Mocks, side panel, URL bar, theme, zoom), Security, Help (shortcuts, manual, release notes, report an issue, check for updates, copy diagnostic info, About). Sign out and in-app items are disabled on the sign-in page.
+- Installer output: live progress bar with size, speed and ETA, coloured steps and checkmarks.
+- The desktop app reuses its last local port, and sample-ERP URLs saved with an older port are re-pointed automatically (fixes "Connection refused" after a restart).
+- Variable popover "Save in" lists every existing environment plus Globals; the user name is no longer repeated in the status bar.
 - Side panels (Requests, Mocks, SFTP): drag the divider to resize, double-click it or use the hide button / Ctrl+B to collapse; the panel follows the active tab (environment tab → Environments, request tab → its place in Collections).
 - Ask before sending when an environment is active: Cancel / Send now bar that sends by itself after N seconds (Settings → Requests & history; 0 = wait). Each collection remembers its environment; the picker only appears once an environment exists.
 - Hover a `{{variable}}` in the request editor to see, edit or define its value.

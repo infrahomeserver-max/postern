@@ -26,11 +26,14 @@ const token = crypto.randomBytes(32).toString('hex');
 let port = 0, srv = null, win = null, origin = '';
 
 const freePort = () => new Promise((res, rej) => { const s = net.createServer(); s.once('error', rej); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
+// Reuse the port of the last run when it is free: the sample ERP's URLs and the window's saved settings (localStorage is per address) then survive a restart.
+const tryPort = (p) => new Promise((res) => { const s = net.createServer(); s.once('error', () => res(false)); s.listen(p, '127.0.0.1', () => s.close(() => res(true))); });
+async function pickPort() { const last = Number(readConf().port || 0); const p = last >= 1024 && await tryPort(last) ? last : await freePort(); if (p !== last) writeConf({ ...readConf(), port: p }); return p; }
 const ping = (p) => new Promise((res) => { const r = http.get({ host: '127.0.0.1', port: p, path: '/api/ping', timeout: 800 }, (x) => { x.resume(); res(x.statusCode === 200); }); r.on('error', () => res(false)); r.on('timeout', () => { r.destroy(); res(false); }); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function startServer() {
-  port = await freePort(); origin = `http://127.0.0.1:${port}`;
+  port = await pickPort(); origin = `http://127.0.0.1:${port}`;
   fs.mkdirSync(DATA, { recursive: true, mode: 0o700 });
   const log = fs.openSync(path.join(DATA, 'postern.log'), 'a');
   srv = spawn(process.execPath, [path.join(APP_DIR, 'server', 'index.js')], {
@@ -95,6 +98,7 @@ async function lockNow() {
   // net.fetch uses the window's session, so the sign-in cookie is sent and the server ends that session.
   try { await enet.fetch(origin + '/api/auth/logout', { method: 'POST', headers: { 'X-Requested-With': 'devhub' } }); } catch { /* ignore */ }
   try { await session.defaultSession.clearStorageData({ storages: ['cookies'] }); } catch { /* ignore */ }
+  signedIn = false; buildMenu();
   win.webContents.reload();
 }
 function armLock() {
@@ -103,20 +107,49 @@ function armLock() {
 }
 function setAutoLock(m) { writeConf({ ...readConf(), autoLockMin: m }); armLock(); buildMenu(); }
 
+let signedIn = false;
+const send = (c) => { if (win && !win.isDestroyed()) win.webContents.send('postern:cmd', c); };
+const REPO = 'https://github.com/infrahomeserver-max/postern';
+function about() {
+  dialog.showMessageBox(win || undefined, { type: 'info', title: 'About Postern', message: `Postern ${app.getVersion()}`, buttons: ['OK'],
+    detail: `API, SOAP and SFTP workspace.\nSelf-hosted; everything you save is encrypted at rest.\n\nElectron ${process.versions.electron} · Chromium ${process.versions.chrome} · Node ${process.versions.node}\n${process.platform} ${process.arch}\n\n${REPO}` });
+}
+function copyDiagnostics() {
+  const { clipboard } = require('electron');
+  clipboard.writeText([`Postern ${app.getVersion()}`, `Electron ${process.versions.electron} / Chromium ${process.versions.chrome} / Node ${process.versions.node}`, `OS ${process.platform} ${process.arch} ${require('os').release()}`, `Data folder ${DATA}`].join('\n'));
+}
 function buildMenu() {
   const m = lockMinutes();
   const isMac = process.platform === 'darwin';
   const lockItems = [0, 5, 15, 30, 60].map((v) => ({ label: v ? `After ${v} minutes idle` : 'Off', type: 'radio', checked: m === v, click: () => setAutoLock(v) }));
+  const inApp = (label, cmd, accelerator, extra = {}) => ({ label, accelerator, enabled: signedIn, click: () => send(cmd), ...extra });
   const t = [
     ...(isMac ? [{ role: 'appMenu' }] : []),
-    { label: 'File', submenu: [{ label: 'Sign out now', accelerator: 'CmdOrCtrl+L', click: lockNow }, { type: 'separator' }, isMac ? { role: 'close' } : { role: 'quit' }] },
+    { label: 'File', submenu: [
+      inApp('New request tab', 'newTab', 'CmdOrCtrl+T'), inApp('Close tab', 'closeTab', 'CmdOrCtrl+W'), { type: 'separator' },
+      inApp('Settings', 'nav:settings', 'CmdOrCtrl+,'), { type: 'separator' },
+      { label: 'Sign out', accelerator: 'CmdOrCtrl+L', enabled: signedIn, click: lockNow }, { type: 'separator' },
+      isMac ? { role: 'close' } : { role: 'quit' }] },
     { role: 'editMenu' },
-    { label: 'View', submenu: [{ role: 'reload' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }, ...(!app.isPackaged ? [{ role: 'toggleDevTools' }] : [])] },
-    { label: 'Security', submenu: [{ label: 'Auto sign-out', submenu: lockItems }, { label: 'Open data folder', click: () => shell.openPath(DATA) }] },
+    { label: 'View', submenu: [
+      inApp('Requests', 'nav:api', 'CmdOrCtrl+1'), inApp('Transfer (SFTP)', 'nav:sftp', 'CmdOrCtrl+2'), inApp('Mock servers', 'nav:mock', 'CmdOrCtrl+3'), { type: 'separator' },
+      inApp('Show / hide side panel', 'toggleSide', 'CmdOrCtrl+B', { registerAccelerator: false }), inApp('Focus the URL bar', 'focusUrl', 'CmdOrCtrl+K', { registerAccelerator: true }),
+      inApp('Switch light / dark theme', 'theme'), { type: 'separator' },
+      { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }, { type: 'separator' }, { role: 'togglefullscreen' }, { role: 'reload' }, ...(!app.isPackaged ? [{ role: 'toggleDevTools' }] : [])] },
+    { label: 'Security', submenu: [{ label: 'Auto sign-out', submenu: lockItems }, { label: 'Sign out now', enabled: signedIn, click: lockNow }, { type: 'separator' }, { label: 'Open data folder', click: () => shell.openPath(DATA) }] },
     { role: 'windowMenu' },
-    { label: 'Help', submenu: [{ label: `Postern ${app.getVersion()}`, enabled: false }, { label: 'Project page', click: () => openExternal('https://github.com/infrahomeserver-max/postern') }] },
+    { label: 'Help', submenu: [
+      inApp('Keyboard shortcuts', 'shortcuts', 'CmdOrCtrl+/'), { type: 'separator' },
+      { label: 'User manual', click: () => openExternal(REPO + '/blob/main/docs/MANUAL.md') },
+      { label: 'Release notes', click: () => openExternal(REPO + '/blob/main/CHANGELOG.md') },
+      { label: 'Report an issue', click: () => openExternal(REPO + '/issues/new') },
+      { label: 'Check for updates', click: () => openExternal(REPO + '/releases/latest') }, { type: 'separator' },
+      { label: 'Copy diagnostic info', click: copyDiagnostics },
+      { label: 'Project page', click: () => openExternal(REPO) },
+      ...(isMac ? [] : [{ type: 'separator' }, { label: `About Postern ${app.getVersion()}`, click: about }])] },
   ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(t));
+  const menu = Menu.buildFromTemplate(t); Menu.setApplicationMenu(menu);
+  if (process.env.POSTERN_MENU_DUMP) { try { const flat = (items, p = '') => items.flatMap(i => i.type === 'separator' ? [] : [{ path: p + i.label, enabled: i.enabled, acc: i.accelerator || '' }, ...(i.submenu ? flat(i.submenu.items, p + i.label + ' > ') : [])]); require('fs').writeFileSync(process.env.POSTERN_MENU_DUMP, JSON.stringify(flat(menu.items))); } catch { /* test hook only */ } }
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
@@ -134,6 +167,7 @@ app.whenReady().then(async () => {
   const reset = () => armLock();
   win.webContents.on('before-input-event', reset);
   ipcMain.on('postern:activity', reset);
+  ipcMain.on('postern:auth', (e, v) => { if (!win || e.sender !== win.webContents) return; const on = v === true; if (on !== signedIn) { signedIn = on; buildMenu(); } });
   const sys = () => { if (lockMinutes()) lockNow(); };
   powerMonitor.on('lock-screen', sys); powerMonitor.on('suspend', sys);
   app.on('activate', () => { if (!win) createWindow(); });

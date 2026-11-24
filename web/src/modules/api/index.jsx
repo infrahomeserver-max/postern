@@ -61,8 +61,9 @@ export default function ApiTester({ active }) {
     if (Object.prototype.hasOwnProperty.call(globals, k)) return { scope: 'global', label: 'Globals', value: String(globals[k]) };
     return { scope: null };
   };
-  const saveVar = (k, value, scope) => {
-    if (scope === 'env' && env) { const has = env.values.some(v => v.key === k); envs.save({ ...env, values: has ? env.values.map(v => v.key === k ? { ...v, value } : v) : [...env.values, { key: k, value, enabled: true }] }, { immediate: true }); }
+  const saveVar = (k, value, scope) => {   // scope: 'global' | 'env' (the active one) | 'env:<id>' (any existing environment)
+    const target = scope === 'env' ? env : scope.startsWith('env:') ? envs.items?.find(e => e.id === scope.slice(4)) : null;
+    if (target) { const has = target.values.some(v => v.key === k); envs.save({ ...target, values: has ? target.values.map(v => v.key === k ? { ...v, value } : v) : [...target.values, { key: k, value, enabled: true }] }, { immediate: true }); }
     else setGlobals({ ...globals, [k]: value });
   };
   const patch = useCallback((id, fn) => setTabs(ts => ts.map(t => t.tid === id ? { ...t, ...(typeof fn === 'function' ? fn(t) : fn) } : t)), []);
@@ -165,6 +166,8 @@ export default function ApiTester({ active }) {
     setTabs(rest); if (tid === id) setTid(rest[Math.max(0, tabs.findIndex(x => x.tid === id) - 1)]?.tid || null);
   };
 
+  const cmdApi = useRef(); cmdApi.current = (c) => { if (!active) return; if (c === 'newTab') openTab(mkTab()); else if (c === 'closeTab' && cur.tid) closeTab(cur.tid); else if (c === 'focusUrl') document.querySelector('input[aria-label="Request URL"]')?.focus(); };
+  useEffect(() => { const h = (e) => cmdApi.current(e.detail); addEventListener('postern:cmd', h); return () => removeEventListener('postern:cmd', h); }, []);
   useEffect(() => {
     if (!active) return;
     const h = (e) => {
@@ -277,7 +280,7 @@ export default function ApiTester({ active }) {
           <div className="col" style={{ height: (100 - split) + '%', minHeight: 0 }}><Response tab={cur} onClear={() => patch(cur.tid, { resp: null, error: null, tests: [], logs: [] })} onExample={(r) => { const ex = { name: `${r.status} ${r.statusText || ''}`.trim(), status: r.status, headers: r.headers.filter(([k]) => !/^(set-cookie|content-length|content-encoding|transfer-encoding|connection|date|server)$/i.test(k)).map(([key, value]) => ({ key, value, enabled: true })), body: (r.bodyText || '').slice(0, 200000) }; setReq({ examples: [...(cur.req.examples || []).filter(e => e.name !== ex.name), ex] }); toast(cur.src ? `Example saved — press Save to keep it` : 'Example added — Save the request to keep it', 'success'); }} /></div>
         </div></>)}
       </div>
-      <VarHover active={!!active && !isEnvTab && cur.kind !== 'none'} lookup={lookupVar} save={saveVar} hasEnv={!!env} envName={env?.name} />
+      <VarHover active={!!active && !isEnvTab && cur.kind !== 'none'} lookup={lookupVar} save={saveVar} hasEnv={!!env} envName={env?.name} envList={envs.items || []} activeEnvId={env?.id || ''} />
       {dlg.el}
       <Suspense fallback={null}>
         {modal?.type === 'import' && <ImportModal onClose={() => setModal(null)} onApply={applyImport} />}

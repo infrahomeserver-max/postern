@@ -1,5 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
-import { api } from './api.js';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { api, docsChanged } from './api.js';
 import { NAME, VERSION } from './brand.js';
 import { useAppearance } from './theme.js';
 import { useStatus } from './status.js';
@@ -76,7 +76,7 @@ function StatusBar({ user }) {
       </> : <span>Ready</span>}
       <span className="grow" />
       {last && <span className="ellipsis" style={{ color: last.ok ? 'var(--ok)' : 'var(--err)' }}>{last.text}</span>}
-      <span>{user.username}</span><span>{NAME} {VERSION}</span>
+      <span>{NAME} {VERSION}</span>
     </footer>);
 }
 
@@ -93,8 +93,31 @@ export default function App() {
   const [look, setLook] = useAppearance(); const theme = look.mode; const setTheme = (mode) => setLook({ mode });
   useEffect(() => { const beat = () => fetch('/api/ping').catch(() => {}); beat(); const iv = setInterval(beat, 30000); return () => clearInterval(iv); }, []); // keeps a desktop-mode server alive while the page is open
   useEffect(() => { api('/auth/me').then(r => { setUser(r.user); setReg(r.registration); }).catch(() => setUser(null)); }, []);
+  // The sample ERP's URLs contain this app's address. If the desktop app started on another port than last time, point them at the current one.
+  useEffect(() => {
+    if (!user) return; let alive = true;
+    (async () => {
+      const re = /https?:\/\/(?:127\.0\.0\.1|localhost):(\d+)\/sample\//g, now = location.origin + '/sample/'; let changed = false;
+      for (const kind of ['environment', 'collection']) {
+        try { for (const d of await api('/docs/' + kind)) { const j = JSON.stringify(d); if (!alive || !re.test(j)) { re.lastIndex = 0; continue; } re.lastIndex = 0;
+          const fixed = j.replace(re, (m) => (m === now ? m : now)); if (fixed !== j) { await api(`/docs/${kind}/${d.id}`, { method: 'PUT', body: JSON.parse(fixed) }); changed = true; docsChanged(kind); } } } catch { /* offline */ }
+      }
+      if (changed && alive) window.dispatchEvent(new CustomEvent('postern:docs-changed', { detail: 'environment' }));
+    })();
+    return () => { alive = false; };
+  }, [user]);
+  useEffect(() => { try { window.posternShell?.setAuth(!!user); } catch { /* not the desktop app */ } }, [user]);
   const open = (id) => { setActive(id); setVisited(v => new Set(v).add(id)); localStorage.setItem('dh.module', id); };
   const logout = async () => { await api('/auth/logout', { method: 'POST' }); setUser(null); setVisited(new Set([active])); };
+  const cmdRef = useRef(); cmdRef.current = (c) => {   // commands from the desktop app's native menu
+    if (c.startsWith('nav:')) return open(c.slice(4));
+    if (c === 'theme') return setTheme(theme === 'dark' ? 'light' : 'dark');
+    if (c === 'signout') return logout();
+    if (c === 'shortcuts') { try { localStorage.setItem('dh.settingsTab', 'shortcuts'); } catch { /* private mode */ } open('settings'); return dispatchEvent(new CustomEvent('postern:settings-tab', { detail: 'shortcuts' })); }
+    if (c === 'newTab' || c === 'focusUrl') open('api');
+    setTimeout(() => dispatchEvent(new CustomEvent('postern:cmd', { detail: c })), 80);
+  };
+  useEffect(() => { const off = window.posternShell?.onCommand?.((c) => cmdRef.current(c)); return () => off?.(); }, []);
 
   if (user === undefined) return <div className="empty" style={{ height: '100%' }}><Spinner /></div>;
   return (

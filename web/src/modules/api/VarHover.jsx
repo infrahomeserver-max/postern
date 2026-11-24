@@ -24,7 +24,7 @@ export function tokenAt(el, x, y) {
   m.remove(); return hit;
 }
 
-export default function VarHover({ active, lookup, save, hasEnv, envName }) {
+export default function VarHover({ active, lookup, save, hasEnv, envName, envList = [], activeEnvId = '' }) {
   const [pop, setPop] = useState(null);
   const openT = useRef(0), closeT = useRef(0), cur = useRef(''), popRef = useRef(null);
   const keepOpen = () => popRef.current && popRef.current.contains(document.activeElement);
@@ -54,17 +54,18 @@ export default function VarHover({ active, lookup, save, hasEnv, envName }) {
   }, [active]); // eslint-disable-line
   useEffect(() => { if (!active) setPop(null); }, [active]);
   if (!pop) return null;
-  return <Pop key={pop.key} pop={pop} lookup={lookup} save={save} hasEnv={hasEnv} envName={envName} popRef={popRef}
+  return <Pop key={pop.key} pop={pop} lookup={lookup} save={save} hasEnv={hasEnv} envName={envName} envList={envList} activeEnvId={activeEnvId} popRef={popRef}
     onEnter={() => clearTimeout(closeT.current)} onLeave={scheduleClose} onClose={() => { cur.current = ''; setPop(null); }} />;
 }
 
-function Pop({ pop, lookup, save, hasEnv, envName, popRef, onEnter, onLeave, onClose }) {
+function Pop({ pop, lookup, save, hasEnv, envName, envList, activeEnvId, popRef, onEnter, onLeave, onClose }) {
   const toast = useToast();
   const name = pop.name, dyn = name.startsWith('$'), info = lookup(name);
   const [val, setVal] = useState(info.value ?? ''); const [show, setShow] = useState(false);
-  const [scope, setScope] = useState(hasEnv ? 'env' : 'global');
+  const [scope, setScope] = useState(activeEnvId ? 'env:' + activeEnvId : envList.length ? 'env:' + envList[0].id : 'global');
   const left = Math.max(8, Math.min(pop.rect.left, innerWidth - 340)); const below = pop.rect.bottom + 6; const flip = below + 190 > innerHeight;
-  const go = () => { const sc = info.scope || scope; save(name, val, sc); toast(`${'{{' + name + '}}'} saved in ${sc === 'env' ? (info.scope ? info.label : envName) : 'Globals'}`, 'success'); onClose(); };
+  const where = (sc) => sc === 'global' ? 'Globals' : sc === 'env' ? envName : (envList.find(e => 'env:' + e.id === sc)?.name || 'the environment');
+  const go = () => { const sc = info.scope || scope; save(name, val, sc); toast(`${'{{' + name + '}}'} saved in ${info.scope ? info.label : where(sc)}`, 'success'); onClose(); };
   const changed = val !== (info.value ?? '') || !info.scope;
   return (
     <div className="var-pop" ref={popRef} style={{ left, ...(flip ? { bottom: innerHeight - pop.rect.top + 6 } : { top: below }) }} role="dialog" aria-label={`Variable ${name}`} onMouseEnter={onEnter} onMouseLeave={onLeave}>
@@ -77,7 +78,8 @@ function Pop({ pop, lookup, save, hasEnv, envName, popRef, onEnter, onLeave, onC
           {info.secret && <button className="icon-btn" title={show ? 'Hide' : 'Show'} aria-label={show ? 'Hide value' : 'Show value'} onClick={() => setShow(!show)}><Icon n="lock" s={13} /></button>}
         </div>
         {!info.scope && <label className="row" style={{ gap: 6, marginTop: 8, fontSize: 12 }}><span className="muted">Save in</span>
-          <select value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Where to save">{hasEnv && <option value="env">{envName}</option>}<option value="global">Globals</option></select></label>}
+          <select className="grow" value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Where to save">{envList.length > 0 && <optgroup label="Environments">{envList.map(e => <option key={e.id} value={'env:' + e.id}>{e.name}{e.id === activeEnvId ? ' (active)' : ''}</option>)}</optgroup>}<optgroup label="Everywhere"><option value="global">Globals (all requests)</option></optgroup></select></label>}
+        {!info.scope && scope.startsWith('env:') && scope !== 'env:' + activeEnvId && <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>It only applies once “{where(scope)}” is the active environment.</div>}
         <div className="row" style={{ marginTop: 8, gap: 8 }}><span className="muted grow" style={{ fontSize: 11.5 }}>{info.scope === 'global' ? 'Applies to every request' : info.scope ? 'Active environment' : 'Used when the request is sent'}</span>
           <button className="btn sm primary" disabled={!changed} onClick={go}>{info.scope ? 'Update' : 'Save'}</button></div></>}
     </div>);

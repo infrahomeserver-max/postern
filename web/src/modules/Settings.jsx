@@ -143,6 +143,7 @@ export default function Settings({ user }) {
   const [tab, setTab] = useState(() => { try { return localStorage.getItem('dh.settingsTab') || 'appearance'; } catch { return 'appearance'; } });
   const pickTab = (t) => { setTab(t); try { localStorage.setItem('dh.settingsTab', t); } catch { /* ignore */ } };
   const toast = useToast(); const dlg = useDialogs();
+  useEffect(() => { const h = (e) => setTab(e.detail); addEventListener('postern:settings-tab', h); return () => removeEventListener('postern:settings-tab', h); }, []);
   const [pw, setPw] = useState({ current: '', next: '' }); const [busy, setBusy] = useState(false);
 
   const backup = async () => {

@@ -140,7 +140,8 @@ export function useSidePanel(key, def = 290, active = true) {
   useEffect(() => {
     if (!active) return;
     const h = (e) => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggle(); } };
-    addEventListener('keydown', h); return () => removeEventListener('keydown', h);
+    const m = (e) => { if (e.detail === 'toggleSide') toggle(); };
+    addEventListener('keydown', h); addEventListener('postern:cmd', m); return () => { removeEventListener('keydown', h); removeEventListener('postern:cmd', m); };
   }, [active, toggle]);
   const clamp = (n) => Math.round(Math.min(Math.max(240, n), Math.min(700, innerWidth * 0.7)));
   const startDrag = (e) => {

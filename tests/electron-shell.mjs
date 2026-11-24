@@ -3,7 +3,7 @@ const R = []; const check = (n, ok, d = '') => { R.push(!!ok); console.log((ok ?
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); const DATA = path.join(os.tmpdir(), 'postern-shell-test'); const CDP = 9333;
 fs.rmSync(DATA, { recursive: true, force: true });
-const el = spawn(process.env.EL_BIN || path.join(ROOT, 'node_modules/electron/dist/electron'), [...(process.env.EL_BIN ? [] : [ROOT]), '--no-sandbox', '--remote-debugging-port=9333'], { env: { ...process.env, POSTERN_DATA: DATA }, stdio: 'ignore' });
+const el = spawn(process.env.EL_BIN || path.join(ROOT, 'node_modules/electron/dist/electron'), [...(process.env.EL_BIN ? [] : [ROOT]), '--no-sandbox', '--remote-debugging-port=9333'], { env: { ...process.env, POSTERN_DATA: DATA, POSTERN_MENU_DUMP: path.join(DATA, 'menu.json') }, stdio: 'ignore' });
 const jget = (u) => new Promise((res, rej) => http.get(u, (x) => { let b = ''; x.on('data', d => b += d); x.on('end', () => { try { res(JSON.parse(b)); } catch (e) { rej(e); } }); }).on('error', rej));
 let targets = []; for (let i = 0; i < 60; i++) { try { targets = (await jget('http://127.0.0.1:9333/json')).filter(t => t.type === 'page' && t.url.startsWith('http://127.0.0.1')); if (targets.length) break; } catch {} await sleep(300); }
 const ws = new WebSocket(targets[0].webSocketDebuggerUrl); await new Promise(r => ws.addEventListener('open', r));
@@ -36,6 +36,11 @@ check('/api/ping is the only open API route', (await raw('/api/ping')).s === 200
 check('DNS-rebinding Host header rejected', (await raw('/api/ping', { headers: { Host: 'evil.example.com' } })).s === 403);
 check('wrong token → 403', (await raw('/api/docs/settings', { headers: { 'X-Postern-Token': '0'.repeat(64) } })).s === 403);
 await cdp('Page.navigate', { url: origin + '/' }); await sleep(1500);
+const dump = () => JSON.parse(fs.readFileSync(path.join(DATA, 'menu.json'), 'utf8')); const mi = (d, p) => d.find(x => x.path === p);
+let d0 = dump();
+check('menu: Sign out is disabled on the sign-in page', mi(d0, 'File > Sign out')?.enabled === false && mi(d0, 'File > New request tab')?.enabled === false, mi(d0, 'File > Sign out'));
+check('menu: has the fuller set (File/View/Help items)', ['File > New request tab', 'File > Close tab', 'File > Settings', 'View > Requests', 'View > Mock servers', 'View > Show / hide side panel', 'Help > Keyboard shortcuts', 'Help > User manual', 'Help > Report an issue', 'Help > Check for updates', 'Help > Copy diagnostic info'].every(p => mi(d0, p)), d0.map(x => x.path).slice(0, 40));
+const sh = await ev(`Object.keys(window.posternShell || {}).sort().join(',')`); check('renderer only gets the narrow menu bridge (setAuth, onCommand)', sh === 'onCommand,setAuth', sh);
 await ev(`fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'devhub'},body:JSON.stringify({username:'elec',password:'correct-horse-9'})}).then(r=>r.status)`);
 check('signed-in window can use the API (token injected by the shell)', (await ev(`fetch('/api/docs/settings').then(r=>r.status)`)) === 200);
 const hdr = await ev(`fetch('/').then(r=>({csp:r.headers.get('content-security-policy'),xfo:r.headers.get('x-frame-options')}))`);
@@ -45,6 +50,7 @@ const hx = port.toString(16).toUpperCase().padStart(4, '0'); const binds = tcp.f
 check('engine bound to 127.0.0.1 only', binds.length && binds.every(b => b.startsWith('0100007F')), binds);
 check('data dir not group/world accessible', (fs.statSync(DATA).mode & 0o077) === 0, (fs.statSync(DATA).mode & 0o777).toString(8));
 check('master.key is 0600', (fs.statSync(path.join(DATA, 'master.key')).mode & 0o077) === 0);
+await cdp('Page.navigate', { url: origin + '/' }); await sleep(2000); d0 = dump(); check('menu: Sign out and New request tab enabled once signed in', mi(d0, 'File > Sign out')?.enabled === true && mi(d0, 'File > New request tab')?.enabled === true, mi(d0, 'File > Sign out'));
 await cdp('Page.captureScreenshot', { format: 'png' }).then(r => fs.writeFileSync(path.join(DATA, 'window.png'), Buffer.from(r.result.data, 'base64')));
 const eng = () => execSync("pgrep -P " + el.pid + " || true").toString().trim();
 check('engine process running while app is open', eng().length > 0);
