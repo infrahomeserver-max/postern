@@ -14,7 +14,7 @@ Early public release: expect rough edges and breaking changes before 0.1.
 - Settings → Network → Local server and mocks: shows the port in use and, in the desktop app, lets you fix it ("Apply and restart"), so mock and sample URLs stay the same.
 - The sample ERP is now called **Workday-Mock ERP**.
 - Desktop menu bar rebuilt along the lines of Postman/VS Code: File (new/close tab, Settings, Sign out), View (Requests/Transfer/Mocks, side panel, URL bar, theme, zoom), Security, Help (shortcuts, manual, release notes, report an issue, check for updates, copy diagnostic info, About). Sign out and in-app items are disabled on the sign-in page.
-- Installer output: live progress bar with size, speed and ETA, coloured steps and checkmarks.
+- Installer output: full-width progress bar that moves in 1/8-cell steps, with size, smoothed speed and ETA, coloured steps and checkmarks (plain ASCII when the terminal is not UTF-8, plain lines when piped).
 - The desktop app reuses its last local port, and sample-ERP URLs saved with an older port are re-pointed automatically (fixes "Connection refused" after a restart).
 - Variable popover "Save in" lists every existing environment plus Globals; the user name is no longer repeated in the status bar.
 - Side panels (Requests, Mocks, SFTP): drag the divider to resize, double-click it or use the hide button / Ctrl+B to collapse; the panel follows the active tab (environment tab → Environments, request tab → its place in Collections).
