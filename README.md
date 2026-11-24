@@ -8,7 +8,7 @@ A self-hosted desktop workspace that combines a Postman-style **API tester** (RE
 
 - **API tester:** all HTTP methods (each with its own colour), draggable tabs, collections, environments and `{{variables}}`, auth: Basic, Bearer, API key, JWT (HMAC), Digest, AWS Signature v4, OAuth 1.0 and OAuth 2 (client credentials, password, refresh token), pre-request scripts and `pm.test` tests in a sandbox, collection runner, history, code generation, and import/export of Postman, OpenAPI/Swagger and cURL.
 - **SOAP / WSDL:** import a WSDL from a URL, file or paste and get a ready-to-send request for every operation.
-- **Mock servers:** public per-mock URLs with templated responses, built from a collection, a WSDL, or **an anonymised real sample** (paste a JSON/XML response and get the same structure with fake values, checked for leaks, entirely in the app), plus a built-in **Workday-style dummy ERP** (periods, journals, trial balances, FX, fixed assets over REST, reports and SOAP, with optional pagination and simulated errors).
+- **Mock servers:** public per-mock URLs with templated responses, built from a collection, a WSDL, or **an anonymised real sample** (paste a JSON/XML response and get the same structure with fake values, checked for leaks, entirely in the app), plus a built-in **Workday-Mock ERP** (periods, journals, trial balances, FX, fixed assets over REST, reports and SOAP, with optional pagination and simulated errors).
 - **SFTP:** site manager, dual-pane local ⇄ remote transfers, queue, resume, remote edit, FileZilla site import, host-key pinning. Sign in with a password, private key, **SSH agent**, or **password + one-time code (2FA)**.
 - **Settings:** theme and colours, interface zoom and density, request and history options, network (timeouts, redirects, SSL, proxy, extra CA and client certificates), file-type actions, backup and restore.
 - **Private by design:** per-user accounts with isolated data, everything encrypted at rest (AES-256-GCM), no cloud, no telemetry.
@@ -36,7 +36,7 @@ The macOS and Windows builds are **not code-signed**, so the first launch shows 
 
 ## Using it
 
-Start Postern, create a local account (username + password; no email or phone number), and open **Requests** (API tester), **Transfer** (SFTP), **Mocks** or **Settings** from the left bar. **Mocks → Sample: Workday-style ERP → Add to my workspace** is a one-click way to try everything. The complete guide is **[docs/MANUAL.md](docs/MANUAL.md)**.
+Start Postern, create a local account (username + password; no email or phone number), and open **Requests** (API tester), **Transfer** (SFTP), **Mocks** or **Settings** from the left bar. **Mocks → Workday-Mock ERP → Add to my workspace** is a one-click way to try everything. The complete guide is **[docs/MANUAL.md](docs/MANUAL.md)**.
 
 ## Your data
 

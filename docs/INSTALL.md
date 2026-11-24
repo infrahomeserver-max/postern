@@ -64,7 +64,7 @@ curl -fsSL https://github.com/infrahomeserver-max/postern/releases/latest/downlo
 The `.deb` is about 100 MB, so the progress bar may crawl on a slow link. The script needs a *published* release: wait until the Release workflow is green. Run it from any folder; it cleans up after itself.
 
 ## Check that it works
-Launch Postern. A window opens with a sign-in/create-account page. Create an account and open **Mocks → Sample: Workday-style ERP → Add to my workspace** for a one-click smoke test (a ready-made collection and environment appear under **Requests**, and the environment is selected for you).
+Launch Postern. A window opens with a sign-in/create-account page. Create an account and open **Mocks → Workday-Mock ERP → Add to my workspace** for a one-click smoke test (a ready-made collection and environment appear under **Requests**, and the environment is selected for you).
 
 `postern --version` prints the version on Linux.
 

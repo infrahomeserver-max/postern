@@ -23,12 +23,17 @@ const writeConf = (c) => { fs.mkdirSync(DATA, { recursive: true, mode: 0o700 });
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
 const token = crypto.randomBytes(32).toString('hex');
-let port = 0, srv = null, win = null, origin = '';
+let port = 0, srv = null, win = null, origin = '', fixedBusy = 0;
 
 const freePort = () => new Promise((res, rej) => { const s = net.createServer(); s.once('error', rej); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
 // Reuse the port of the last run when it is free: the sample ERP's URLs and the window's saved settings (localStorage is per address) then survive a restart.
 const tryPort = (p) => new Promise((res) => { const s = net.createServer(); s.once('error', () => res(false)); s.listen(p, '127.0.0.1', () => s.close(() => res(true))); });
-async function pickPort() { const last = Number(readConf().port || 0); const p = last >= 1024 && await tryPort(last) ? last : await freePort(); if (p !== last) writeConf({ ...readConf(), port: p }); return p; }
+async function pickPort() {
+  const fixed = Number(readConf().fixedPort || 0);
+  if (fixed >= 1024 && await tryPort(fixed)) { writeConf({ ...readConf(), port: fixed }); return fixed; }
+  if (fixed >= 1024) fixedBusy = fixed;   // wanted a fixed port but something else is using it: say so once the window is up
+  const last = Number(readConf().port || 0); const p = last >= 1024 && await tryPort(last) ? last : await freePort(); if (p !== last) writeConf({ ...readConf(), port: p }); return p;
+}
 const ping = (p) => new Promise((res) => { const r = http.get({ host: '127.0.0.1', port: p, path: '/api/ping', timeout: 800 }, (x) => { x.resume(); res(x.statusCode === 200); }); r.on('error', () => res(false)); r.on('timeout', () => { r.destroy(); res(false); }); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -136,7 +141,7 @@ function buildMenu() {
       inApp('Show / hide side panel', 'toggleSide', 'CmdOrCtrl+B', { registerAccelerator: false }), inApp('Focus the URL bar', 'focusUrl', 'CmdOrCtrl+K', { registerAccelerator: true }),
       inApp('Switch light / dark theme', 'theme'), { type: 'separator' },
       { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }, { type: 'separator' }, { role: 'togglefullscreen' }, { role: 'reload' }, ...(!app.isPackaged ? [{ role: 'toggleDevTools' }] : [])] },
-    { label: 'Security', submenu: [{ label: 'Auto sign-out', submenu: lockItems }, { label: 'Sign out now', enabled: signedIn, click: lockNow }, { type: 'separator' }, { label: 'Open data folder', click: () => shell.openPath(DATA) }] },
+    { label: 'Security', submenu: [{ label: 'Auto sign-out', submenu: lockItems }, { label: 'Open data folder', click: () => shell.openPath(DATA) }] },
     { role: 'windowMenu' },
     { label: 'Help', submenu: [
       inApp('Keyboard shortcuts', 'shortcuts', 'CmdOrCtrl+/'), { type: 'separator' },
@@ -163,10 +168,21 @@ app.whenReady().then(async () => {
   try { await startServer(); } catch (e) { dialog.showErrorBox('Postern', String(e.message || e)); app.quit(); return; }
   hardenSession(session.defaultSession);
   buildMenu(); createWindow(); armLock();
+  if (fixedBusy) win.webContents.once('did-finish-load', () => dialog.showMessageBox(win, { type: 'warning', message: `Port ${fixedBusy} is in use`, detail: 'Postern started on another port instead. Change or clear the fixed port in Settings → Network.' }));
   // activity resets the idle timer; OS-level lock/suspend signs out immediately when auto sign-out is on
   const reset = () => armLock();
   win.webContents.on('before-input-event', reset);
   ipcMain.on('postern:activity', reset);
+  ipcMain.handle('postern:get-port', (e) => { if (!win || e.sender !== win.webContents) return null; return { port, fixed: Number(readConf().fixedPort || 0) || null }; });
+  ipcMain.handle('postern:set-port', async (e, n) => {
+    if (!win || e.sender !== win.webContents) return { error: 'Not allowed' };
+    n = Number(n); if (n !== 0 && !(Number.isInteger(n) && n >= 1024 && n <= 65535)) return { error: 'Use a number from 1024 to 65535.' };
+    if (n && n !== port && !(await tryPort(n))) return { error: `Port ${n} is already in use by another program.` };
+    const c = readConf(); if (n) c.fixedPort = n; else delete c.fixedPort; writeConf(c);
+    const r = await dialog.showMessageBox(win, { type: 'question', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1, message: n ? `Use port ${n}?` : 'Use an automatic port?', detail: 'Postern needs to restart for this to take effect. Open requests are kept.' });
+    if (r.response === 0) { app.relaunch(); quitting = true; app.exit(0); }
+    return { ok: true };
+  });
   ipcMain.on('postern:auth', (e, v) => { if (!win || e.sender !== win.webContents) return; const on = v === true; if (on !== signedIn) { signedIn = on; buildMenu(); } });
   const sys = () => { if (lockMinutes()) lockNow(); };
   powerMonitor.on('lock-screen', sys); powerMonitor.on('suspend', sys);

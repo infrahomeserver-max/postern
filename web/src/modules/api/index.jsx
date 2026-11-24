@@ -247,9 +247,8 @@ export default function ApiTester({ active }) {
               </div>))}
             <button className="icon-btn" onClick={(e) => newMenu(e, [{ label: 'REST request', run: () => openTab(mkTab()) }, { label: 'SOAP request', run: () => openTab(mkTab(newSoapRequest())) }])} title="New tab (Ctrl+T)" aria-label="New tab"><Icon n="plus" /></button>{newMenuEl}
           </div>
-          <div className="envbar">{envs.items?.length > 0 && <select value={env ? activeEnvId : ''} onChange={(e) => chooseEnv(e.target.value)} aria-label="Environment" style={{ maxWidth: 190 }}>
-            <option value="">No environment</option>{envs.items?.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select>}
-          <button className="btn sm" onClick={() => { setView('environments'); act('openEnv', activeEnvId || envs.items?.[0]?.id || '__globals'); }} title="Edit environment variables in a tab"><Icon n="gear" s={13} />Manage</button></div>
+          <div className="envbar">{envs.items?.length > 0 && <select value={env ? activeEnvId : ''} onChange={(e) => { if (e.target.value === '__manage') { setView('environments'); act('openEnv', activeEnvId || envs.items?.[0]?.id || '__globals'); } else chooseEnv(e.target.value); }} aria-label="Environment" style={{ maxWidth: 190 }}>
+            <option value="">No environment</option>{envs.items?.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}<option disabled>──────────</option><option value="__manage">Manage environments…</option></select>}</div>
         </div>
         {cur.kind === 'none' ? (
           <div className="empty grow"><div><Icon n="send" s={34} c="var(--muted)" /><h3>No open requests</h3><p className="muted">Open one from Collections, or start a new one.</p>

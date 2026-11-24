@@ -21,10 +21,10 @@ export default function Samples() {
       const { fromPostman, envFromPostman, importText } = await import('../api/convert.js');
       const get = async (u, text) => { const r = await fetch(u); if (!r.ok) throw new Error('Could not load ' + u); return text ? r.text() : r.json(); };
       const rest = fromPostman(await get(`${ROOT}/postman/collection.json?soap=0`));
-      rest.name = 'Workday-style dummy ERP (REST + reports)';
+      rest.name = 'Workday-Mock ERP (REST + reports)';
       const wsdlUrl = `${ROOT}/ccx/service/dummy/Financial_Management/v1`;
       const soap = (await importText(await get(wsdlUrl, true), { baseUrl: wsdlUrl })).data;
-      soap.name = 'Workday-style dummy ERP (SOAP)';
+      soap.name = 'Workday-Mock ERP (SOAP)';
       const withAuth = (items) => items.forEach(it => { if (it.type === 'folder') withAuth(it.items); else it.auth = { ...(it.auth || {}), type: 'basic', basic: { username: '{{clientId}}', password: '{{clientSecret}}' } }; });
       withAuth(soap.items);
       const env = envFromPostman(await get(`${ROOT}/postman/environment.json`));
@@ -36,7 +36,7 @@ export default function Samples() {
   return (
     <div className="grow" style={{ overflow: 'auto', padding: 24 }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <h2 style={{ margin: '0 0 4px' }}>Workday-style dummy ERP</h2>
+        <h2 style={{ margin: '0 0 4px' }}>Workday-Mock ERP</h2>
         <p className="muted" style={{ marginTop: 0 }}>A ready-made test server with <b>generated dummy data</b> (no real data, not Workday) for building and testing extractors: REST, report (RaaS-style) and SOAP, each with optional pagination.</p>
         <div className="row" style={{ gap: 8, margin: '12px 0' }}>
           <button className="btn primary" onClick={setup} disabled={busy}>{busy ? <Spinner /> : <Icon n="plus" s={13} />} Add to my workspace</button>

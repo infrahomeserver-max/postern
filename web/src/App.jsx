@@ -17,6 +17,20 @@ const MODULES = [
   { id: 'mock', label: 'Mocks', icon: 'mock', C: Mock },
   { id: 'settings', label: 'Settings', icon: 'gear', C: Settings },
 ];
+function UserMenu({ user, theme, setTheme, logout }) {
+  const [o, setO] = useState(false); const ref = useRef();
+  useEffect(() => { if (!o) return; const h = (e) => { if (!ref.current?.contains(e.target)) setO(false); }; const k = (e) => { if (e.key === 'Escape') setO(false); }; addEventListener('mousedown', h); addEventListener('keydown', k); return () => { removeEventListener('mousedown', h); removeEventListener('keydown', k); }; }, [o]);
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="avatar" onClick={() => setO(!o)} title={'Signed in as ' + user.username} aria-label="Account menu" aria-expanded={o}>{(user.username || '?')[0].toUpperCase()}</button>
+      {o && <div className="user-pop" role="menu">
+        <div className="muted" style={{ padding: '6px 10px', fontSize: 12 }}>Signed in as <b style={{ color: 'var(--text)' }}>{user.username}</b></div>
+        <button role="menuitem" className="mi" onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setO(false); }}><Icon n={theme === 'dark' ? 'sun' : 'moon'} s={15} />{theme === 'dark' ? 'Light theme' : 'Dark theme'}</button>
+        <button role="menuitem" className="mi" onClick={() => { setO(false); logout(); }}><Icon n="logout" s={15} />Sign out</button>
+      </div>}
+    </div>);
+}
+
 const SOON = [{ label: 'SSH', icon: 'term' }, { label: 'Database', icon: 'db' }];
 
 function AuthScreen({ onAuth, registration }) {
@@ -125,19 +139,14 @@ export default function App() {
       {!user ? <AuthScreen onAuth={setUser} registration={registration} /> : (
         <div className="shell">
           <nav className="rail" aria-label="Modules">
-            <div className="logo"><Logo s={20} /></div>
-            {MODULES.map(m => <button key={m.id} className={'nav' + (active === m.id ? ' active' : '')} onClick={() => open(m.id)} title={m.label}><Icon n={m.icon} s={20} />{m.label}</button>)}
+            <button className="logo" onClick={() => open('api')} title="Postern — go to Requests" aria-label="Postern home"><Logo s={20} /></button>
+            {MODULES.filter(m => m.id !== 'settings').map(m => <button key={m.id} className={'nav' + (active === m.id ? ' active' : '')} onClick={() => open(m.id)} title={m.label}><Icon n={m.icon} s={20} />{m.label}</button>)}
             <div className="grow" />
             {SOON.map(m => <button key={m.label} className="nav" disabled title={m.label + ' — coming soon'}><Icon n={m.icon} s={20} />{m.label}</button>)}
+            <UserMenu user={user} theme={theme} setTheme={setTheme} logout={logout} />
+            {MODULES.filter(m => m.id === 'settings').map(m => <button key={m.id} className={'nav' + (active === m.id ? ' active' : '')} onClick={() => open(m.id)} title="Settings (Ctrl+,)"><Icon n={m.icon} s={20} />{m.label}</button>)}
           </nav>
           <div className="main">
-            <div className="topbar">
-              <strong>{{ api: 'API Tester', sftp: 'SFTP Client', mock: 'Mock Servers', settings: 'Settings' }[active]}</strong>
-              <span className="grow" />
-              <span className="muted">{user.username}</span>
-              <button className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Toggle theme" aria-label="Toggle theme"><Icon n={theme === 'dark' ? 'sun' : 'moon'} /></button>
-              <button className="icon-btn" onClick={logout} title="Sign out" aria-label="Sign out"><Icon n="logout" /></button>
-            </div>
             <div className="content">
               {MODULES.filter(m => visited.has(m.id)).map(m => (
                 <div key={m.id} className={'module' + (active === m.id ? '' : ' hidden')}>

@@ -11,5 +11,7 @@ const { contextBridge } = require('electron');
 const CMDS = new Set(['nav:api', 'nav:sftp', 'nav:mock', 'nav:settings', 'newTab', 'closeTab', 'toggleSide', 'theme', 'signout', 'shortcuts', 'focusUrl']);
 contextBridge.exposeInMainWorld('posternShell', {
   setAuth: (v) => ipcRenderer.send('postern:auth', v === true),
+  getPort: () => ipcRenderer.invoke('postern:get-port'),
+  setPort: (n) => ipcRenderer.invoke('postern:set-port', Number(n) || 0),
   onCommand: (cb) => { const h = (_e, c) => { if (CMDS.has(c)) cb(c); }; ipcRenderer.on('postern:cmd', h); return () => ipcRenderer.removeListener('postern:cmd', h); },
 });

@@ -40,7 +40,9 @@ const dump = () => JSON.parse(fs.readFileSync(path.join(DATA, 'menu.json'), 'utf
 let d0 = dump();
 check('menu: Sign out is disabled on the sign-in page', mi(d0, 'File > Sign out')?.enabled === false && mi(d0, 'File > New request tab')?.enabled === false, mi(d0, 'File > Sign out'));
 check('menu: has the fuller set (File/View/Help items)', ['File > New request tab', 'File > Close tab', 'File > Settings', 'View > Requests', 'View > Mock servers', 'View > Show / hide side panel', 'Help > Keyboard shortcuts', 'Help > User manual', 'Help > Report an issue', 'Help > Check for updates', 'Help > Copy diagnostic info'].every(p => mi(d0, p)), d0.map(x => x.path).slice(0, 40));
-const sh = await ev(`Object.keys(window.posternShell || {}).sort().join(',')`); check('renderer only gets the narrow menu bridge (setAuth, onCommand)', sh === 'onCommand,setAuth', sh);
+const sh = await ev(`Object.keys(window.posternShell || {}).sort().join(',')`); check('renderer only gets the narrow bridge (setAuth, onCommand, getPort, setPort)', sh === 'getPort,onCommand,setAuth,setPort', sh);
+const gp = await ev(`window.posternShell.getPort()`); check('getPort reports the running port', gp && gp.port === port && gp.fixed === null, gp);
+const bad = await ev(`Promise.all([80, 70000, 1234.5].map(n => window.posternShell.setPort(n)))`); check('setPort rejects invalid ports', bad.every(r => r && r.error), bad);
 await ev(`fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'devhub'},body:JSON.stringify({username:'elec',password:'correct-horse-9'})}).then(r=>r.status)`);
 check('signed-in window can use the API (token injected by the shell)', (await ev(`fetch('/api/docs/settings').then(r=>r.status)`)) === 200);
 const hdr = await ev(`fetch('/').then(r=>({csp:r.headers.get('content-security-policy'),xfo:r.headers.get('x-frame-options')}))`);

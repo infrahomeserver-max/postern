@@ -229,7 +229,7 @@ export default function MockModule({ active }) {
             <div key={m.id} className={'tree-item' + (sel === m.id ? ' active' : '')} onClick={() => setSel(m.id)} style={{ padding: '8px 8px' }}>
               <span className="dot" style={{ background: m.enabled === false ? 'var(--muted)' : 'var(--ok)' }} />
               <div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">{m.name}</div><div className="muted" style={{ fontSize: 11 }}>{m.routes?.length || 0} routes</div></div></div>))}
-          <div className={'tree-item' + (sel === '__samples' ? ' active' : '')} onClick={() => setSel('__samples')} style={{ padding: '8px 8px', marginTop: 6 }}><Icon n="box" s={14} c="var(--accent2)" /><div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">Sample: Workday-style ERP</div><div className="muted" style={{ fontSize: 11 }}>dummy data · REST + SOAP</div></div></div>
+          <div className={'tree-item' + (sel === '__samples' ? ' active' : '')} onClick={() => setSel('__samples')} style={{ padding: '8px 8px', marginTop: 6 }}><Icon n="box" s={14} c="var(--accent2)" /><div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">Workday-Mock ERP</div><div className="muted" style={{ fontSize: 11 }}>dummy data · REST + SOAP</div></div></div>
           {mocks.items?.length === 0 && <div className="empty"><div><Icon n="server" s={28} c="var(--muted)" /><p>Fake an API while the real one is being built.</p></div></div>}
         </div>
         <div style={{ padding: 10, borderTop: '1px solid var(--line)' }}><div className="col" style={{ gap: 6 }}><button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setPick(true)}><Icon n="box" s={13} />From a collection…</button>

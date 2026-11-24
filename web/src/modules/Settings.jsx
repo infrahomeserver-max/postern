@@ -50,6 +50,22 @@ function FileTypes() {
 
 
 const NET_DEFAULTS = { timeoutMs: 30000, followRedirects: true, verifySsl: true, maxResponseMB: 20, userAgent: '', proxyMode: 'none', proxyUrl: '', proxyUser: '', proxyPass: '', proxyBypass: 'localhost,127.0.0.1', caPem: '', clientCertPem: '', clientKeyPem: '', clientKeyPass: '', sftpConnectTimeoutSec: 15, sftpKeepaliveSec: 20, sftpRetries: 0, sftpConcurrency: 64, sftpChunkKB: 64 };
+function LocalServer() {
+  const shell = window.posternShell; const [st, setSt] = useState(null); const [val, setVal] = useState(''); const [msg, setMsg] = useState('');
+  useEffect(() => { shell?.getPort?.().then((r) => { setSt(r); setVal(r.fixed ? String(r.fixed) : ''); }).catch(() => {}); }, []); // eslint-disable-line
+  const Sub = ({ children }) => <div style={{ gridColumn: '1 / -1', fontWeight: 650, marginTop: 2 }}>{children}</div>;
+  if (!shell?.getPort) return <>
+    <Sub>Local server and mocks</Sub>
+    <label>Port in use</label><b className="mono">{location.port || '80'}</b>
+    <span /><span className="muted">Mock servers answer on this same port, for example <code className="mono">{location.origin}/mock/…</code>. In the lite build, choose it when you start the server: <code className="mono">PORT=4000 npm start</code> (or <code className="mono">--port 4000</code> in the installed service).</span></>;
+  const apply = async () => { setMsg(''); const n = val.trim() === '' ? 0 : Number(val); if (n !== 0 && !(Number.isInteger(n) && n >= 1024 && n <= 65535)) return setMsg('Use a number from 1024 to 65535, or leave it empty for automatic.'); const r = await shell.setPort(n).catch((e) => ({ error: String(e) })); if (r?.error) setMsg(r.error); };
+  return <>
+    <Sub>Local server and mocks</Sub>
+    <label>Port in use</label><b className="mono">{st ? st.port : '…'}</b>
+    <label>Fixed port</label><div className="row" style={{ gap: 8 }}><input type="number" min="1024" max="65535" value={val} placeholder="automatic" onChange={(e) => setVal(e.target.value)} style={{ maxWidth: 160 }} aria-label="Fixed port" /><button className="btn sm" onClick={apply} disabled={!st || String(st.fixed || '') === val.trim()}>Apply and restart</button></div>
+    <span /><span className="muted">Mock servers and the sample ERP are reachable on this port (<code className="mono">http://127.0.0.1:{st?.port}/…</code>), so a fixed port keeps their URLs the same after every restart. Leave empty to let Postern pick one (it reuses the last one when free).</span>
+    {msg && <><span /><span className="err-text" role="alert">{msg}</span></>}</>;
+}
 function Network() {
   const docs = useDocs('settings');
   const saved = docs.items?.find(d => d.id === 'network');
@@ -58,16 +74,17 @@ function Network() {
   if (!n) return <div className="skeleton" style={{ height: 120 }} />;
   const set = (p) => { const next = { ...n, ...p }; setN(next); docs.save(next); };
   const num = (k, lo, hi) => (e) => set({ [k]: e.target.value === '' ? NET_DEFAULTS[k] : Math.min(hi, Math.max(lo, Number(e.target.value))) });
-  const Sub = ({ children }) => <div style={{ gridColumn: '1 / -1', fontWeight: 650, marginTop: 8, borderTop: '1px solid var(--line)', paddingTop: 12 }}>{children}</div>;
+  const Sub = ({ children }) => <div style={{ gridColumn: '1 / -1', fontWeight: 650, marginTop: 2 }}>{children}</div>;
   const File = ({ k, label }) => <><label>{label}</label><div className="row" style={{ gap: 8 }}><button className="btn sm" type="button" onClick={async () => { const f = await pickFile('.pem,.crt,.cer,.key,.txt'); if (f) set({ [k]: await f.text() }); }}>Choose file…</button><span className="muted">{n[k] ? (n[k] === '__keep__' ? 'saved' : 'loaded') : 'none'}</span>{n[k] && <button className="btn sm ghost" type="button" onClick={() => set({ [k]: '' })}>Remove</button>}</div></>;
   return (
-    <div className="form" style={{ maxWidth: 600, rowGap: 12 }}>
+    <div className="set-grid"><div className="form">
       <Sub>Requests (REST &amp; SOAP) — defaults, each request can override</Sub>
       <label>Timeout (ms)</label><input type="number" min="100" max="300000" value={n.timeoutMs} onChange={num('timeoutMs', 100, 300000)} />
       <label>Follow redirects</label><input type="checkbox" checked={n.followRedirects} onChange={(e) => set({ followRedirects: e.target.checked })} />
       <label>Verify SSL certificates</label><input type="checkbox" checked={n.verifySsl} onChange={(e) => set({ verifySsl: e.target.checked })} />
       <label>Max response size (MB)</label><input type="number" min="1" max="200" value={n.maxResponseMB} onChange={num('maxResponseMB', 1, 200)} />
       <label>User-Agent</label><input value={n.userAgent} placeholder="(default)" onChange={(e) => set({ userAgent: e.target.value })} />
+    </div><div className="form">
       <Sub>Proxy</Sub>
       <label>Use proxy</label><Seg label="Proxy" value={n.proxyMode} onChange={(proxyMode) => set({ proxyMode })} options={[['none', 'None'], ['system', 'System (env)'], ['custom', 'Custom']]} />
       {n.proxyMode === 'custom' && <>
@@ -77,19 +94,22 @@ function Network() {
         <label>No proxy for</label><input value={n.proxyBypass} placeholder="localhost,127.0.0.1,.internal" onChange={(e) => set({ proxyBypass: e.target.value })} />
       </>}
       {n.proxyMode === 'system' && <><span /><span className="muted">Uses HTTP_PROXY / HTTPS_PROXY / NO_PROXY from the environment Postern was started in.</span></>}
+    </div><div className="form">
       <Sub>Certificates</Sub>
       <File k="caPem" label="Extra CA certificate" />
       <File k="clientCertPem" label="Client certificate (mTLS)" />
       <File k="clientKeyPem" label="Client private key" />
       {n.clientKeyPem && <><label>Key passphrase</label><input type="password" autoComplete="new-password" value={n.clientKeyPass === '__keep__' ? '' : n.clientKeyPass} placeholder={n.clientKeyPass === '__keep__' ? '(saved)' : '(none)'} onChange={(e) => set({ clientKeyPass: e.target.value })} /></>}
+    </div><div className="form">
       <Sub>SFTP</Sub>
       <label>Connect timeout (s)</label><input type="number" min="3" max="120" value={n.sftpConnectTimeoutSec} onChange={num('sftpConnectTimeoutSec', 3, 120)} />
       <label>Keep-alive every (s, 0 = off)</label><input type="number" min="0" max="300" value={n.sftpKeepaliveSec} onChange={num('sftpKeepaliveSec', 0, 300)} />
       <label>Connect retries</label><input type="number" min="0" max="5" value={n.sftpRetries} onChange={num('sftpRetries', 0, 5)} />
       <label>Parallel transfer requests</label><input type="number" min="1" max="128" value={n.sftpConcurrency} onChange={num('sftpConcurrency', 1, 128)} />
       <label>Transfer chunk size (KB)</label><input type="number" min="16" max="1024" value={n.sftpChunkKB} onChange={num('sftpChunkKB', 16, 1024)} />
+    </div><div className="form"><LocalServer />
       <span /><span className="muted">Changes apply to the next request or connection. Proxy passwords and keys are stored encrypted on the server and never shown again. Certificates apply to all hosts.</span>
-    </div>
+    </div></div>
   );
 }
 
@@ -175,7 +195,7 @@ export default function Settings({ user }) {
         {SECTIONS.map(([id, icon, label]) => <button key={id} className={'set-item' + (tab === id ? ' active' : '')} aria-current={tab === id ? 'page' : undefined} onClick={() => pickTab(id)}><Icon n={icon} s={16} />{label}</button>)}
       </nav>
       <div className="set-body">
-      <div style={{ maxWidth: 720 }}>
+      <div style={{ maxWidth: 1240 }}>
         {tab === 'appearance' && (<>
         <Card icon="sun" title="Appearance"><Appearance /></Card>
         </>)}

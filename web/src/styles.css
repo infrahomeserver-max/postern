@@ -193,7 +193,9 @@ select:disabled { opacity: .55; cursor: not-allowed; }
 .side-resizer { width: 5px; margin-left: -3px; margin-right: -2px; flex: none; cursor: col-resize; position: relative; z-index: 6; background: transparent; transition: background .12s; }
 .side-resizer:hover, .side-resizer:focus-visible, body.resizing-x .side-resizer { background: color-mix(in srgb, var(--accent) 55%, transparent); outline: none; }
 body.resizing-x { cursor: col-resize !important; user-select: none; } body.resizing-x * { cursor: col-resize !important; }
-.side-collapsed { width: 34px; flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 8px; }
+/* collapsed side panel: no column, just a small button in the header band */
+.side-collapsed { width: 0; flex: none; position: relative; z-index: 7; } .side-collapsed .icon-btn { position: absolute; left: 6px; top: 6px; }
+.side-collapsed + * > :first-child { padding-left: 40px !important; }
 .side .tabs .tab { min-width: 0; overflow: hidden; white-space: nowrap; } .side .tabs .tab .tl { overflow: hidden; text-overflow: ellipsis; }
 @container (max-width: 275px) { .side .tabs .tab .tl { display: none; } }
 .side .grow.row input { min-width: 0; }
@@ -227,3 +229,17 @@ a[href], a[href] * { cursor: pointer !important; }
 .cmp-pane, .cmp-pane * { user-select: text !important; -webkit-user-select: text !important; cursor: text !important; } .cmp-line .ln { user-select: none !important; }
 .cmp-pane ::selection, .cmp-pane::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); }
 .cmp-pane:focus-visible { outline: 2px solid var(--accent); }
+
+/* ---- rail: clickable logo, account button, bottom Settings; no top bar ---- */
+.logo { border: 0; padding: 0; cursor: default; } .logo:hover { filter: brightness(1.2); }
+.rail .grow { flex: 1; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: 600 13px/1 inherit; display: grid; place-items: center; margin: 6px 0 2px; }
+.avatar:hover { border-color: var(--accent); }
+.user-pop { position: fixed; left: 66px; bottom: 56px; z-index: 95; width: 210px; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; }
+.user-pop .mi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; text-align: left; }
+.user-pop .mi:hover { background: color-mix(in srgb, var(--text) 11%, transparent); }
+/* ---- settings: sections side by side on wide windows ---- */
+.set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 28px 40px; align-items: start; }
+.set-grid .form { grid-template-columns: 150px 1fr; }
+/* ---- compact request area ---- */
+.tabstrip .tab { padding-top: 7px; padding-bottom: 7px; }

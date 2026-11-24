@@ -251,7 +251,7 @@ function postman(origin, withSoap = true) {
   const sreq = (name, op, crit, page) => ({ name, request: { method: 'POST', header: [{ key: 'Content-Type', value: 'text/xml; charset=utf-8' }, { key: 'SOAPAction', value: '' }, { key: 'Authorization', value: 'Bearer {{token}}' }],
     body: { mode: 'raw', raw: soap(op, crit, page), options: { raw: { language: 'xml' } } }, url: { raw: '{{baseUrl}}/ccx/service/{{tenant}}/Financial_Management/v1', host: ['{{baseUrl}}'], path: ['ccx', 'service', '{{tenant}}', 'Financial_Management', 'v1'] } } });
   return {
-    info: { name: 'Workday-style dummy ERP', description: 'Dummy finance data. Run "Get token" first (sets {{token}}). Add limit/offset (REST) or Response_Filter (SOAP) to paginate; leave them off for everything.', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+    info: { name: 'Workday-Mock ERP', description: 'Dummy finance data. Run "Get token" first (sets {{token}}). Add limit/offset (REST) or Response_Filter (SOAP) to paginate; leave them off for everything.', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
     item: [
       { name: 'Auth', item: [{ name: 'Get token (client credentials)', event: [{ listen: 'test', script: { type: 'text/javascript', exec: ['const j = pm.response.json();', 'pm.environment.set("token", j.access_token);', 'pm.test("token issued", () => pm.expect(j.access_token).to.be.a("string"));'] } }],
         request: { method: 'POST', header: [{ key: 'Content-Type', value: 'application/x-www-form-urlencoded' }], body: { mode: 'urlencoded', urlencoded: [{ key: 'grant_type', value: 'client_credentials' }, { key: 'client_id', value: '{{clientId}}' }, { key: 'client_secret', value: '{{clientSecret}}' }] }, url: { raw: '{{baseUrl}}/ccx/oauth2/{{tenant}}/token', host: ['{{baseUrl}}'], path: ['ccx', 'oauth2', '{{tenant}}', 'token'] } } }] },
@@ -278,13 +278,13 @@ function postman(origin, withSoap = true) {
   };
 }
 workdayRouter.get('/postman/collection.json', (req, res) => res.json(postman(`${req.protocol}://${req.get('host')}`, req.query.soap !== '0')));
-workdayRouter.get('/postman/environment.json', (req, res) => res.json({ name: 'Workday-style dummy ERP', values: [
+workdayRouter.get('/postman/environment.json', (req, res) => res.json({ name: 'Workday-Mock ERP', values: [
   { key: 'baseUrl', value: `${req.protocol}://${req.get('host')}${BASE}`, enabled: true }, { key: 'tenant', value: 'dummy', enabled: true },
   { key: 'clientId', value: 'dummy-client', enabled: true }, { key: 'clientSecret', value: 'dummy-secret', enabled: true, type: 'secret' }, { key: 'token', value: '', enabled: true }], _postman_variable_scope: 'environment' }));
 
 workdayRouter.get('/', (req, res) => {
   const o = `${req.protocol}://${req.get('host')}${BASE}`;
-  res.json({ name: 'Workday-style dummy ERP (test data, not Workday)', tenant: 'any name, e.g. "dummy"', auth: { token: `POST ${o}/ccx/oauth2/dummy/token (grant_type=client_credentials, any client id/secret)`, or: 'Basic with any credentials; SOAP also accepts a WS-Security UsernameToken' },
+  res.json({ name: 'Workday-Mock ERP (test data, not Workday)', tenant: 'any name, e.g. "dummy"', auth: { token: `POST ${o}/ccx/oauth2/dummy/token (grant_type=client_credentials, any client id/secret)`, or: 'Basic with any credentials; SOAP also accepts a WS-Security UsernameToken' },
     rest: Object.keys(REST).map(r => `${o}/ccx/api/v1/dummy/${r}`), reports: Object.keys(REPORTS).map(r => `${o}/ccx/service/customreport2/dummy/owner/${r}?format=json|csv|simplexml`),
     soap: { endpoint: `${o}/ccx/service/dummy/Financial_Management/v1`, wsdl: `${o}/ccx/service/dummy/Financial_Management/v1` + ' (GET)', operations: Object.keys(OPS) },
     options: { pagination: 'REST/reports: limit, offset (or page); SOAP: Response_Filter Page/Count; omit for everything', rows: 'rows=N sets journal volume (10-20000, default 600)', simulate: 'simulate=401|403|404|429|500|503|timeout, latency=ms' },

@@ -59,8 +59,8 @@ The bar on the left switches between **Requests** (API tester), **Transfer** (SF
 ## 5. Mock Servers and the sample Workday-style ERP
 **Mock Servers → New mock** creates a public URL `http://127.0.0.1:<port>/mock/<random-id>`. Add routes (method + path with `:params` and `*`), set status, headers, delay and a body template (`{{params.id}}`, `{{query.q}}`, `{{body.x}}`, `{{$guid}}`). Mocks answer without sign-in, so they can be called from other tools on the same machine.
 
-**Sample: Workday-style ERP** is a fake finance system with deterministic synthetic data (4 companies, accounts, periods FY2024–26, journals, trial balances, FX rates, fixed assets). It is served over REST, report-as-a-service (JSON/CSV/XML) and SOAP with a WSDL.
-1. Open Mock Servers → **Sample: Workday-style ERP**.
+**Workday-Mock ERP** is a fake finance system with deterministic synthetic data (4 companies, accounts, periods FY2024–26, journals, trial balances, FX rates, fixed assets). It is served over REST, report-as-a-service (JSON/CSV/XML) and SOAP with a WSDL.
+1. Open Mock Servers → **Workday-Mock ERP**.
 2. Click **Add to my workspace**. A collection (REST + SOAP) and an environment (base URL, client id/secret) appear in API Tester.
 3. Send the OAuth token request if you want a Bearer token (Basic auth also works), then any extractor. Use `limit` / `offset` / `page` for **optional pagination**, `rows` to change volume, and `simulate=401|403|404|429|500|503|timeout` and `latency` to rehearse error handling.
 
